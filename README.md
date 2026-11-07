@@ -150,6 +150,52 @@ For OTA, select **only** the application `.bin`. Do not select `bootloader.bin`,
 
 Available features depend on the physical pedalboard wiring. FUSB pins are reserved for USB and cannot be assigned to buttons or LEDs.
 
+## Parts list and wiring reference
+
+This is the parts list and default pin map for the current WT9932P4-TINY build. Some items depend on the enclosure and how many controls you install.
+
+### Parts
+
+| Qty. | Part | Notes |
+| ---: | --- | --- |
+| 1 | WT9932P4-TINY board with ESP32-P4 | Required target board. |
+| 1 | 0.96-inch 128×64 I²C OLED, SSD1306 | Four-wire module: VCC, GND, SDA, SCL. A compatible SSD1306 I²C module is required. |
+| 9 | SPST momentary footswitches, normally closed (NC) | Current default configuration has 9 switches. |
+| Up to 8 | 3 mm two-lead indicator LEDs for footswitches | Default map assigns individual LEDs to buttons 1–7 and 9; button 8 has no individual LED. |
+| 3 | 3 mm two-lead indicator LEDs for layer/status indication | Default layer LED pins are GPIO12, GPIO13, and GPIO31. |
+| Up to 6 | Expression pedals or compatible potentiometer assemblies | Each needs 3.3 V, GND, and a wiper/signal connection. The pedals themselves are optional. |
+| 1 | Female 5-pin DIN socket | MIDI IN only. |
+| 1 | 6N138 optocoupler | MIDI IN isolation stage. Use the circuit in the linked tutorial and observe its resistor and supply values. |
+| As required | Resistors for the MIDI IN circuit and one current-limiting resistor per LED | Do not connect an LED directly to an ESP32 GPIO. Choose LED resistors for the LED and 3.3 V supply. |
+| Optional, 1 | Panel-mount 4-pin USB-C female socket/breakout | Only if you want a panel-mounted FUSB connection. It must carry USB D+, D−, 5 V, and GND correctly; the board's existing FUSB port is sufficient. |
+| As required | Wire, perfboard/PCB, enclosure, headers, and USB data cable | Match wire and connector ratings to the circuit; keep USB data lines short and correctly paired. |
+
+### Default GPIO assignments
+
+Use these assignments when building the default 9-button layout. In the web app, hardware GPIO assignments can be changed, but each physical wire must match the configured GPIO. Keep GPIO24 and GPIO25 reserved for FUSB USB data.
+
+| Control | GPIO assignment |
+| --- | --- |
+| Footswitch 1–9 inputs | GPIO16, 17, 18, 19, 20, 21, 22, 14, 23, respectively |
+| Footswitch 1–9 LEDs | GPIO27, 30, 33, 34, 26, 32, 28, unassigned, 29, respectively |
+| Layer LEDs 1–3 | GPIO13, GPIO12, GPIO31, respectively |
+| Expression pedal signal inputs | Any supported ADC GPIO from GPIO49 through GPIO54; assign a different pin to each pedal. Firmware supports up to 6 pedals. |
+| OLED SDA / SCL | GPIO10 / GPIO11, respectively; I²C at 400 kHz. The firmware probes I²C addresses 0x3C and 0x3D. |
+| MIDI IN data from 6N138 output | GPIO15 (UART1 RX), 31,250 baud. This is the default and must not be shared with another control. |
+
+### Basic connections
+
+- **NC footswitch:** connect the switch between its assigned GPIO and GND. The firmware uses the internal pull-up and treats the pressed/closed state as active.
+- **LED:** connect each GPIO to its LED through its own current-limiting resistor, observing LED polarity; connect the other LED lead to GND. Confirm the chosen GPIO can drive the intended current and use a transistor driver if needed.
+- **Expression pedal:** connect 3.3 V, GND, and the wiper to one assigned ADC GPIO (GPIO49–GPIO54). Do not feed 5 V into an ESP32-P4 input.
+- **OLED:** connect VCC to 3.3 V, GND to GND, SDA to GPIO10, and SCL to GPIO11. Verify the module accepts 3.3 V logic.
+- **MIDI IN:** wire the female DIN socket through a 6N138 MIDI input circuit; connect the optocoupler's logic output to GPIO15 and share the circuit's 3.3 V/GND reference with the ESP32 side. MIDI IN requires a correctly wired optocoupler circuit; do not connect DIN pins directly to GPIO15.
+- **Panel USB-C socket (optional):** use it only as a correctly wired extension/breakout of FUSB. USB D+/D− route to the board's FUSB data path (GPIO24/25 on this target), with 5 V and GND wired as specified by the board/socket. Do not use this socket for MIDI DIN or connect its data pins to GPIO15.
+
+**MIDI IN circuit tutorial:** [Watch the user-provided tutorial](https://www.youtube.com/watch?v=GxfHijjn0ZM). Check its component values and wiring against the 6N138 circuit before powering the pedalboard; the ESP32-side UART input for this firmware is GPIO15.
+
+The pin map above is taken from the firmware defaults. Confirm the physical board header labels and the exact revision of your WT9932P4-TINY before soldering; do not assume GPIO numbers are the same as header pin numbers.
+
 ## Troubleshooting
 
 - **No COM port appears:** try a known data cable and another USB port, then check Device Manager. The initial installer accepts only the Espressif USB Serial/JTAG interface on FUSB.
