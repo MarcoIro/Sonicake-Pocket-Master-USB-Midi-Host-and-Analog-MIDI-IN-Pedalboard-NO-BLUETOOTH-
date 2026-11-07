@@ -22,7 +22,7 @@ This is a one-time setup for a board that has not yet been switched to native US
 2. **Espressif ESP-IDF 5.4.4 Tools Installer for Windows.** Use Espressif's [installer page](https://dl.espressif.com/dl/esp-idf/) and select version **5.4.4**, or follow the [official ESP32-P4 Windows setup guide](https://docs.espressif.com/projects/esp-idf/en/v5.4/esp32p4/get-started/windows-setup.html). When asked for install folders, use paths without spaces, such as `C:\Espressif`. Choose the ESP-IDF PowerShell environment at the end of setup. The installer provides the required Python environment, `esptool.py`, `espefuse.py`, and other ESP-IDF tools; do not install these separately.
 3. **Chrome or Microsoft Edge** for the web app.
 4. A **USB data cable** and the supported WT9932P4-TINY / ESP32-P4 board.
-5. A way to download/extract the GitHub ZIP. Git is optional; downloading the ZIP in a browser is enough. A separate Python installation is only needed if you want to serve the web app locally instead of using GitHub Pages.
+5. A way to download/extract the GitHub ZIP. Git is optional; downloading the ZIP in a browser is enough.
 
 ### A. Download and prepare the package
 
@@ -105,14 +105,12 @@ The installer writes the bootloader, partition table, OTA data, and app at their
 
 ## Open the web app
 
-The web app uses **Web Serial**, which requires Chrome or Edge and a secure context. The simplest option is to enable GitHub Pages for the repository (Settings → Pages → deploy from the `main` branch and `/(root)`), then open `https://<your-account>.github.io/<repository>/web-app/`. Alternatively, extract the package and run these commands in PowerShell. Python is required only for this local-server option:
+The web app is a **single self-contained HTML file**. No Python, web server, or separate CSS/JavaScript files are needed.
 
-```powershell
-cd C:\pedaliera-release\web-app
-python -m http.server 8000
-```
+- **Open locally:** extract the GitHub ZIP, then double-click `web-app/index.html` and open it with Chrome or Microsoft Edge.
+- **Open online:** enable GitHub Pages for the repository (Settings → Pages → deploy from the `main` branch and `/(root)`), then visit `https://<your-account>.github.io/<repository>/web-app/`.
 
-Then open `http://localhost:8000` in Chrome or Edge. Connect FUSB and press **Connetti Seriale**. The app's interface is currently in Italian. Configuration and firmware update commands require **Pocket Master mode**; native USB MIDI mode suspends those commands.
+Web Serial is available only in supported browsers and secure contexts. A local `file://` page is treated as a secure context by current browsers; if your browser or organization policy blocks serial access from local files, use the GitHub Pages HTTPS link instead. Connect FUSB and press **Connetti Seriale**. The app's interface is currently in Italian. Configuration and firmware update commands require **Pocket Master mode**; native USB MIDI mode suspends those commands.
 
 ## Firmware updates
 
@@ -161,6 +159,7 @@ To publish this folder as a simple end-user repository:
 ## Licensing and trademarks
 
 Sonicake, Pocket Master, ESP32-P4, and toolchain trademarks belong to their respective owners; names here identify compatibility. Before publishing, choose and add a license for the project's original material and check the licenses of any dependencies you distribute. This package does not assign a license to the code.
+
 
 
 
