@@ -4,6 +4,18 @@ This lightweight package is for users of the **WT9932P4-TINY board with ESP32-P4
 
 > **Supported hardware:** WT9932P4-TINY with ESP32-P4 and the USB routing used by this project. Do not use this firmware or the eFuse procedure on another board or hardware revision unless you have verified its USB wiring.
 
+## Development and installation help
+
+This project was developed using **Antigravity IDE**. You can open the extracted release folder in Antigravity and ask its assistant to guide you through the installation one step at a time. The release package contains prebuilt firmware; it is not a source project to compile.
+
+For example, ask Antigravity:
+
+```text
+Read this repository's README.md and guide me one step at a time through the first installation on my WT9932P4-TINY / ESP32-P4 using Windows and ESP-IDF 5.4.4. Help me identify the correct USB Serial/JTAG COM port and explain each command before I run it. Stop if the board, port, or eFuse state does not match the README. Do not run or approve the irreversible USB_PHY_SEL eFuse burn on my behalf; wait for me to review the warning and explicitly confirm it.
+```
+
+Antigravity can explain the steps and help interpret errors. Follow the hardware-specific instructions in this README; the eFuse change is permanent.
+
 ## Which installation path do I need?
 
 | Board state | What to do |
@@ -11,6 +23,8 @@ This lightweight package is for users of the **WT9932P4-TINY board with ESP32-P4
 | First installation; FUSB appears as **Espressif USB Serial/JTAG** in Windows | Follow **First-time installation** below. It flashes the firmware and then permanently programs one eFuse. |
 | The board already exposes **USB CDC** and **USB MIDI** on FUSB | Do not run the initial installer. Use **Firmware updates** and upload only `firmware/pedaliera-firmware.bin` in the web app. |
 | The eFuse is set, but the board does not start or CDC/MIDI do not appear | Stop and request help. The initial installer intentionally refuses to run again; do not try to burn the eFuse a second time. |
+
+> **Important — do not reverse this order:** on a blank board, the initial installer first flashes the bootloader, partition table, OTA data, and firmware over USB Serial/JTAG. Only after that flash succeeds does it burn `USB_PHY_SEL`. After the board reboots, the firmware already on the ESP32-P4 exposes USB CDC and USB MIDI on FUSB. The web app can then connect for **future OTA updates**. The web app is not used to install the first firmware image. Burning the eFuse first can remove the FUSB Serial/JTAG path before the firmware that provides CDC/OTA is installed.
 
 ## First-time installation (Windows)
 
@@ -84,7 +98,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Then run the installer command again. This changes the policy only for that terminal session.
 
-The installer checks that the COM port is the expected Espressif USB Serial/JTAG interface, reads `USB_PHY_SEL`, and verifies that all four firmware files are present. It then asks for the exact confirmation `ATTIVA USB MIDI`. After confirmation it writes the bootloader, partition table, initial OTA data, and application to the ESP32-P4. It programs the eFuse **only if the flash succeeds**. Keep the cable connected and do not close the terminal while it runs.
+The installer checks that the COM port is the expected Espressif USB Serial/JTAG interface, reads `USB_PHY_SEL`, and verifies that all four firmware files are present. It asks for the exact confirmation `ATTIVA USB MIDI`, then writes the bootloader, partition table, initial OTA data, and application to the ESP32-P4. After the flash, inspect the board startup (display/LEDs, if present). The installer then asks you to enter ROM download mode manually: hold **BOOT**, press and release **RESET**, then release **BOOT**. Leave FUSB connected and type `DOWNLOAD MODE`. The script calls `espefuse.py --before no_reset` so it does not reset the chip out of download mode before communicating. Only then does it program `USB_PHY_SEL`. If flash fails or you do not confirm download mode, the eFuse is left unchanged. Keep the cable connected and do not close the terminal while it runs.
 
 When it reports completion:
 
@@ -154,11 +168,14 @@ To publish this folder as a simple end-user repository:
 4. Publish a GitHub Release for each firmware version. Attach at least `pedaliera-firmware.bin` for OTA users. For first-time installs, keep all four files from `firmware/` in the repository and attach them to the release as well.
 5. Update `RELEASE.md` and regenerate `SHA256SUMS.txt` whenever you replace the firmware or web app. State the target board, tested hardware, changes, and any special update/recovery steps.
 
-**Included firmware snapshot:** built on 2026-11-06. It does not yet have a semantic version tag. Before calling it a stable public release, assign a version/tag and list the hardware revisions actually tested.
+**Included firmware snapshot:** built on 2026-11-06. Project notes record that CDC and web-app status communication worked after the eFuse change, but a later OTA transfer rebooted during a chunk. The included build contains the subsequent compiled OTA fix, but that fix has not yet been confirmed on the physical board. Treat OTA updating as unverified until it completes successfully on the target hardware. This snapshot does not yet have a semantic version tag; before calling it a stable public release, assign a version/tag and list the hardware revisions actually tested.
 
 ## Licensing and trademarks
 
 Sonicake, Pocket Master, ESP32-P4, and toolchain trademarks belong to their respective owners; names here identify compatibility. Before publishing, choose and add a license for the project's original material and check the licenses of any dependencies you distribute. This package does not assign a license to the code.
+
+
+
 
 
 

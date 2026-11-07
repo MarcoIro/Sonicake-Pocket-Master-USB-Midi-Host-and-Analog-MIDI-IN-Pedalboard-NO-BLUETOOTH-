@@ -86,8 +86,18 @@ if ($LASTEXITCODE -ne 0) {
     Stop-WithMessage 'Flash iniziale non riuscito; non è stata richiesta la modifica eFuse.'
 }
 
-Write-Host 'Flash completato. Programmo USB_PHY_SEL=1...'
-$burnOutput = & $pythonExe $espefuse --chip esp32p4 --port $Port --do-not-confirm burn_efuse USB_PHY_SEL 1 2>&1
+Write-Host ''
+Write-Host 'Flash completato e scheda riavviata. Controlla che il firmware si avvii (display/LED, se presenti) prima di proseguire.' -ForegroundColor Yellow
+Write-Host 'Ora entra manualmente in ROM download mode: tieni premuto BOOT, premi e rilascia RESET, poi rilascia BOOT.' -ForegroundColor Yellow
+Write-Host 'Lascia FUSB collegata. Il burn userà --before no_reset per non resettare la scheda fuori dalla download mode.' -ForegroundColor Yellow
+$downloadConfirmation = Read-Host 'Quando la scheda è in download mode, scrivi DOWNLOAD MODE'
+if ($downloadConfirmation -cne 'DOWNLOAD MODE') {
+    Write-Host 'Operazione interrotta. Il firmware è stato flashato, ma USB_PHY_SEL non è stato modificato.'
+    exit 0
+}
+
+Write-Host 'Programmo USB_PHY_SEL=1 senza resettare la scheda prima del collegamento...'
+$burnOutput = & $pythonExe $espefuse --chip esp32p4 --before no_reset --port $Port --do-not-confirm burn_efuse USB_PHY_SEL 1 2>&1
 $burnExitCode = $LASTEXITCODE
 $burnOutput | ForEach-Object { Write-Host $_ }
 if ($burnExitCode -ne 0) {
@@ -98,3 +108,4 @@ if ($burnExitCode -ne 0) {
 Write-Host ''
 Write-Host 'Prima installazione completata. Scollega e ricollega FUSB senza tenere premuto BOOT.'
 Write-Host 'Verifica la comparsa di USB MIDI e della porta CDC. Per gli aggiornamenti usa la web app.'
+
