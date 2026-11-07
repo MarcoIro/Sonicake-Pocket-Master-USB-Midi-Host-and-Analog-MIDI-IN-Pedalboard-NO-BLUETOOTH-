@@ -140,12 +140,13 @@ For OTA, select **only** the application `.bin`. Do not select `bootloader.bin`,
 ## Features
 
 - Controls a Sonicake Pocket Master connected to **HUSB**: reads/synchronizes state, selects among 100 presets, moves to the previous/next preset, sends tap tempo, and toggles effect modules.
+- **Controls the Pocket Master from a traditional MIDI controller over 5-pin DIN:** connect the controller's MIDI OUT to the pedalboard's female **MIDI IN** socket. The pedalboard receives MIDI through its 6N138 optocoupler and forwards supported messages to the Pocket Master over USB. This is a physical DIN MIDI input; it does not require USB MIDI from the external controller. Enable/configure MIDI IN in the web app as needed.
 - Exposes a composite USB device on **FUSB**: class-compliant USB MIDI for a DAW or MIDI software, plus USB CDC for the web app. A configurable two-footswitch hold switches modes.
 - Configures up to 16 footswitch profiles and 6 layers. This firmware snapshot starts with 9 buttons and 2 layers. Actions include short/long press, module toggle, preset selection, tap tempo, layer switching, custom CC, custom SysEx, and patch-scene jumps with return.
 - Configures footswitch LEDs and the OLED layout, including preset, layer, USB, BPM, and expression-pedal information.
 - Supports up to 6 expression pedals with calibration, soft takeover, parameter assignments, and USB MIDI CC output. Assignments can vary by preset. A configurable footswitch combination can act as an expression killswitch.
 - In USB MIDI mode, footswitches can send CC, Note, Program Change, and Tap Tempo messages with configurable values and momentary/toggle behavior. Expression pedals can send CC messages.
-- Supports wired MIDI input with passthrough, channel filtering, and remapping of all 16 MIDI channels, depending on the installed hardware wiring.
+- Supports 5-pin DIN MIDI IN with passthrough, channel filtering, and remapping of all 16 MIDI channels, depending on the installed hardware wiring. Supported channel messages include Note On/Off, Control Change, Program Change, Channel Pressure, Pitch Bend, and Poly Aftertouch.
 - The web app provides live status, manual CC/SysEx sending, JSON configuration import/export, and USB firmware updates. Configuration is stored in the board's NVS flash.
 
 Available features depend on the physical pedalboard wiring. FUSB pins are reserved for USB and cannot be assigned to buttons or LEDs.
@@ -161,8 +162,8 @@ This is the parts list and default pin map for the current WT9932P4-TINY build. 
 | 1 | WT9932P4-TINY board with ESP32-P4 | Required target board. |
 | 1 | 0.96-inch 128×64 I²C OLED, SSD1306 | Four-wire module: VCC, GND, SDA, SCL. A compatible SSD1306 I²C module is required. |
 | 9 | SPST momentary footswitches, normally closed (NC) | Current default configuration has 9 switches. |
-| Up to 8 | 3 mm two-lead indicator LEDs for footswitches | Default map assigns individual LEDs to buttons 1–7 and 9; button 8 has no individual LED. |
-| 3 | 3 mm two-lead indicator LEDs for layer/status indication | Default layer LED pins are GPIO12, GPIO13, and GPIO31. |
+| 8 | 3 mm two-lead indicator LEDs for footswitches | Default map assigns individual LEDs to buttons 1–7 and 9; button 8 has no individual LED. |
+| 3 | 3 mm two-lead indicator LEDs for layer/status indication | Default layer LED pins are GPIO12, GPIO13, and GPIO31. This makes **11 LEDs total** in the default build: 8 footswitch LEDs + 3 layer LEDs. |
 | Up to 6 | Expression pedals or compatible potentiometer assemblies | Each needs 3.3 V, GND, and a wiper/signal connection. The pedals themselves are optional. |
 | 1 | Female 5-pin DIN socket | MIDI IN only. |
 | 1 | 6N138 optocoupler | MIDI IN isolation stage. Use the circuit in the linked tutorial and observe its resistor and supply values. |
@@ -189,12 +190,21 @@ Use these assignments when building the default 9-button layout. In the web app,
 - **LED:** connect each GPIO to its LED through its own current-limiting resistor, observing LED polarity; connect the other LED lead to GND. Confirm the chosen GPIO can drive the intended current and use a transistor driver if needed.
 - **Expression pedal:** connect 3.3 V, GND, and the wiper to one assigned ADC GPIO (GPIO49–GPIO54). Do not feed 5 V into an ESP32-P4 input.
 - **OLED:** connect VCC to 3.3 V, GND to GND, SDA to GPIO10, and SCL to GPIO11. Verify the module accepts 3.3 V logic.
-- **MIDI IN:** wire the female DIN socket through a 6N138 MIDI input circuit; connect the optocoupler's logic output to GPIO15 and share the circuit's 3.3 V/GND reference with the ESP32 side. MIDI IN requires a correctly wired optocoupler circuit; do not connect DIN pins directly to GPIO15.
+- **MIDI IN to control Pocket Master:** connect an external controller's MIDI OUT to this pedalboard's female 5-pin DIN MIDI IN. Wire the DIN socket through a 6N138 MIDI input circuit; connect the optocoupler's logic output to GPIO15 and share the circuit's 3.3 V/GND reference with the ESP32 side. The firmware forwards supported incoming MIDI channel messages to the Pocket Master over its USB connection. MIDI IN requires a correctly wired optocoupler circuit; do not connect DIN pins directly to GPIO15.
 - **Panel USB-C socket (optional):** use it only as a correctly wired extension/breakout of FUSB. USB D+/D− route to the board's FUSB data path (GPIO24/25 on this target), with 5 V and GND wired as specified by the board/socket. Do not use this socket for MIDI DIN or connect its data pins to GPIO15.
 
 **MIDI IN circuit tutorial:** [Watch the user-provided tutorial](https://www.youtube.com/watch?v=GxfHijjn0ZM). Check its component values and wiring against the 6N138 circuit before powering the pedalboard; the ESP32-side UART input for this firmware is GPIO15.
 
 The pin map above is taken from the firmware defaults. Confirm the physical board header labels and the exact revision of your WT9932P4-TINY before soldering; do not assume GPIO numbers are the same as header pin numbers.
+
+### Default pedalboard shortcuts
+
+These are firmware defaults and can be changed in the web app:
+
+- **Pedalboard mode switch:** hold physical footswitches **3 + 8** together for **3 seconds** to switch between Pocket Master control mode and USB MIDI mode.
+- **Expression pedal killswitch:** hold physical footswitches **5 + 2** together for **5 seconds** to toggle the expression pedal killswitch. This disables or re-enables expression pedal output without unplugging the pedals.
+
+The two combinations are separate. Make sure the corresponding footswitches are installed and configured; do not assign the same pair to both functions.
 
 ## Troubleshooting
 
