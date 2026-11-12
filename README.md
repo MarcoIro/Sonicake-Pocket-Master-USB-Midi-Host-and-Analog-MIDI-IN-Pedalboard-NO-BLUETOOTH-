@@ -181,7 +181,8 @@ Use these assignments when building the default 9-button layout. In the web app,
 | Footswitch 1–9 LEDs | GPIO27, 30, 33, 34, 26, 32, 28, unassigned, 29, respectively |
 | Layer LEDs 1–3 | GPIO13, GPIO12, GPIO31, respectively |
 | Expression pedal signal inputs | Any supported ADC GPIO from GPIO49 through GPIO54; assign a different pin to each pedal. Firmware supports up to 6 pedals. |
-| OLED SDA / SCL | GPIO10 / GPIO11, respectively; I²C at 400 kHz. The firmware probes I²C addresses 0x3C and 0x3D. |
+| OLED SDA | GPIO10; I²C at 400 kHz. The firmware probes I²C addresses 0x3C and 0x3D. |
+| OLED SCL | GPIO11. |
 | MIDI IN data from 6N138 output | GPIO15 (UART1 RX), 31,250 baud. This is the default and must not be shared with another control. |
 
 ### Basic connections
