@@ -215,24 +215,6 @@ The two combinations are separate. Make sure the corresponding footswitches are 
 - **The web app cannot communicate or OTA will not start:** make sure the selected port is the board's CDC port, close other applications using it, and switch to Pocket Master mode.
 - **The board disconnects during eFuse programming:** do not retry the burn blindly. Reconnect FUSB and check whether USB CDC and MIDI have appeared.
 
-## Upload this package to GitHub
-
-To publish this folder as a simple end-user repository:
-
-1. Create a new GitHub repository.
-2. Upload the **contents** of this `github-release` folder to the repository root. The root should contain this `README.md`, `installazione-iniziale.ps1`, `firmware/`, and `web-app/`.
-3. In the repository settings, enable GitHub Pages if you want users to open the web app online. The app URL will end in `/web-app/`.
-4. Publish a GitHub Release for each firmware version. Attach at least `pedaliera-firmware.bin` for OTA users. For first-time installs, keep all four files from `firmware/` in the repository and attach them to the release as well.
-5. Update `RELEASE.md` and regenerate `SHA256SUMS.txt` whenever you replace the firmware or web app. State the target board, tested hardware, changes, and any special update/recovery steps.
-
-**Included firmware snapshot:** built on 2026-11-12. It adds a configurable expression-pedal jitter filter and preserves live Toggle con hold handling for the stock FX1 switch, which is also reserved for the mode-switch combination. Project notes record that CDC and web-app status communication worked after the eFuse change, but a later OTA transfer rebooted during a chunk. The included build contains the subsequent compiled OTA fix, but that fix has not yet been confirmed on the physical board. Treat OTA updating as unverified until it completes successfully on the target hardware. This snapshot does not yet have a semantic version tag; before calling it a stable public release, assign a version/tag and list the hardware revisions actually tested.
-
-## Licensing and trademarks
-
-Sonicake, Pocket Master, ESP32-P4, and toolchain trademarks belong to their respective owners; names here identify compatibility. Before publishing, choose and add a license for the project's original material and check the licenses of any dependencies you distribute. This package does not assign a license to the code.
-
-
-
 
 
 
