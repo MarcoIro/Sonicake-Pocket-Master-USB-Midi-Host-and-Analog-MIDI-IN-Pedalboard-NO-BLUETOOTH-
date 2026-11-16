@@ -166,8 +166,10 @@ This is the parts list and default pin map for the current WT9932P4-TINY build. 
 | 3 | 3 mm two-lead indicator LEDs for layer/status indication | Default layer LED pins are GPIO12, GPIO13, and GPIO31. This makes **11 LEDs total** in the default build: 8 footswitch LEDs + 3 layer LEDs. |
 | Up to 6 | Expression pedals or compatible potentiometer assemblies | Each needs 3.3 V, GND, and a wiper/signal connection. The pedals themselves are optional. |
 | 1 | Female 5-pin DIN socket | MIDI IN only. |
-| 1 | 6N138 optocoupler | MIDI IN isolation stage. Use the circuit in the linked tutorial and observe its resistor and supply values. |
-| As required | Resistors for the MIDI IN circuit and one current-limiting resistor per LED | Do not connect an LED directly to an ESP32 GPIO. Choose LED resistors for the LED and 3.3 V supply. |
+| 1 | 6N138 optocoupler | MIDI IN isolation stage. Power pin 8 from 5 V; keep its output at ESP32-safe 3.3 V with the pull-up resistor below. |
+| 1 | 220 Ω resistor | Series resistor on the MIDI DIN input side of the 6N138. |
+| 1 | 10 kΩ resistor | Pull-up from 6N138 pin 6 (output) to 3.3 V; connect pin 6 to GPIO15. Do not pull the output up to 5 V. |
+| As required | One current-limiting resistor per LED | Do not connect an LED directly to an ESP32 GPIO. Choose LED resistors for the LED and 3.3 V supply. |
 | Optional, 1 | Panel-mount 4-pin USB-C female socket/breakout | Only if you want a panel-mounted FUSB connection. It must carry USB D+, D−, 5 V, and GND correctly; the board's existing FUSB port is sufficient. |
 | As required | Wire, perfboard/PCB, enclosure, headers, and USB data cable | Match wire and connector ratings to the circuit; keep USB data lines short and correctly paired. |
 
@@ -191,10 +193,28 @@ Use these assignments when building the default 9-button layout. In the web app,
 - **LED:** connect each GPIO to its LED through its own current-limiting resistor, observing LED polarity; connect the other LED lead to GND. Confirm the chosen GPIO can drive the intended current and use a transistor driver if needed.
 - **Expression pedal:** connect 3.3 V, GND, and the wiper to one assigned ADC GPIO (GPIO49–GPIO54). Do not feed 5 V into an ESP32-P4 input.
 - **OLED:** connect VCC to 3.3 V, GND to GND, SDA to GPIO10, and SCL to GPIO11. Verify the module accepts 3.3 V logic.
-- **MIDI IN to control Pocket Master:** connect an external controller's MIDI OUT to this pedalboard's female 5-pin DIN MIDI IN. Wire the DIN socket through a 6N138 MIDI input circuit; connect the optocoupler's logic output to GPIO15 and share the circuit's 3.3 V/GND reference with the ESP32 side. The firmware forwards supported incoming MIDI channel messages to the Pocket Master over its USB connection. MIDI IN requires a correctly wired optocoupler circuit; do not connect DIN pins directly to GPIO15.
+- **MIDI IN to control Pocket Master:** use the pin-by-pin 6N138 wiring instructions below. The firmware reads MIDI at 31,250 baud on GPIO15 (UART1 RX) and forwards supported incoming channel messages to the Pocket Master over USB. Never connect the DIN socket directly to GPIO15.
 - **Panel USB-C socket (optional):** use it only as a correctly wired extension/breakout of FUSB. USB D+/D− route to the board's FUSB data path (GPIO24/25 on this target), with 5 V and GND wired as specified by the board/socket. Do not use this socket for MIDI DIN or connect its data pins to GPIO15.
 
-**MIDI IN circuit tutorial:** [Watch the user-provided tutorial](https://www.youtube.com/watch?v=GxfHijjn0ZM). Check its component values and wiring against the 6N138 circuit before powering the pedalboard; the ESP32-side UART input for this firmware is GPIO15.
+#### MIDI IN: exact 6N138 wiring
+
+Connect the circuit with power off. Read the molded pin numbers on the DIN socket; do not infer pin numbers from a front- or rear-view drawing. The 6N138 numbers below are viewed from the top, with the notch at the top: pins 1–4 run down the left side, and pins 8–5 run down the right side.
+
+| Part/pin | Connect it to |
+| --- | --- |
+| DIN socket pin 4 | One lead of the **220 Ω** series resistor. |
+| Other lead of the 220 Ω resistor | 6N138 **pin 2** (input LED anode). |
+| DIN socket pin 5 | 6N138 **pin 3** (input LED cathode). |
+| 6N138 pin 8 (VCC) | The board's **5 V** supply. This powers the optocoupler only; it is not the GPIO signal voltage. |
+| 6N138 pin 5 (GND) | Board GND. This is the ESP32-side ground; do not connect it to DIN pin 2. |
+| 6N138 pin 6 (output) | GPIO15 (UART1 RX), and one end of the **10 kΩ** pull-up resistor. |
+| Other end of the 10 kΩ pull-up resistor | **3.3 V**. This sets the output high level safe for GPIO15. |
+| 6N138 pins 1, 4, and 7 | Leave unconnected for this wiring. |
+| DIN socket pins 1, 2, and 3 | Leave unconnected for this MIDI IN circuit. |
+
+In short: the 220 Ω resistor is in series between DIN pin 4 and 6N138 pin 2; DIN pin 5 goes to 6N138 pin 3; the optocoupler output at pin 6 goes to GPIO15 and is pulled up to 3.3 V through 10 kΩ. Pin 8 receives 5 V, but **5 V must never connect to pin 6, GPIO15, or the 10 kΩ pull-up's 3.3 V end**. The optocoupler keeps the DIN input electrically isolated from the ESP32 side.
+
+**MIDI IN circuit tutorial:** [Watch the user-provided tutorial](https://www.youtube.com/watch?v=GxfHijjn0ZM). Follow the pin-by-pin wiring and resistor values above for this pedalboard if the tutorial shows a different output pull-up or signal voltage.
 
 The pin map above is taken from the firmware defaults. Confirm the physical board header labels and the exact revision of your WT9932P4-TINY before soldering; do not assume GPIO numbers are the same as header pin numbers.
 
@@ -214,6 +234,24 @@ The two combinations are separate. Make sure the corresponding footswitches are 
 - **The browser does not offer a serial port:** use Chrome or Edge, serve the app through GitHub Pages/HTTPS or `localhost`, and reconnect FUSB.
 - **The web app cannot communicate or OTA will not start:** make sure the selected port is the board's CDC port, close other applications using it, and switch to Pocket Master mode.
 - **The board disconnects during eFuse programming:** do not retry the burn blindly. Reconnect FUSB and check whether USB CDC and MIDI have appeared.
+
+## Upload this package to GitHub
+
+To publish this folder as a simple end-user repository:
+
+1. Create a new GitHub repository.
+2. Upload the **contents** of this `github-release` folder to the repository root. The root should contain this `README.md`, `installazione-iniziale.ps1`, `firmware/`, and `web-app/`.
+3. In the repository settings, enable GitHub Pages if you want users to open the web app online. The app URL will end in `/web-app/`.
+4. Publish a GitHub Release for each firmware version. Attach at least `pedaliera-firmware.bin` for OTA users. For first-time installs, keep all four files from `firmware/` in the repository and attach them to the release as well.
+5. Update `RELEASE.md` and regenerate `SHA256SUMS.txt` whenever you replace the firmware or web app. State the target board, tested hardware, changes, and any special update/recovery steps.
+
+**Included firmware snapshot:** built on 2026-11-12. It adds a configurable expression-pedal jitter filter and preserves live Toggle con hold handling for the stock FX1 switch, which is also reserved for the mode-switch combination. Project notes record that CDC and web-app status communication worked after the eFuse change, but a later OTA transfer rebooted during a chunk. The included build contains the subsequent compiled OTA fix, but that fix has not yet been confirmed on the physical board. Treat OTA updating as unverified until it completes successfully on the target hardware. This snapshot does not yet have a semantic version tag; before calling it a stable public release, assign a version/tag and list the hardware revisions actually tested.
+
+## Licensing and trademarks
+
+Sonicake, Pocket Master, ESP32-P4, and toolchain trademarks belong to their respective owners; names here identify compatibility. Before publishing, choose and add a license for the project's original material and check the licenses of any dependencies you distribute. This package does not assign a license to the code.
+
+
 
 
 
