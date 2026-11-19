@@ -2025,7 +2025,7 @@ function normalizeConfig() {
     configData = configData || {};
     configData.settings = configData.settings || {};
     configData.settings.expression_deadband = Math.min(1000, Math.max(0, Number(configData.settings.expression_deadband ?? 25) || 0));
-    configData.version = Math.max(Number(configData.version) || 1, 7);
+    configData.version = Math.max(Number(configData.version) || 1, 11);
     configData.layers = Array.isArray(configData.layers) ? configData.layers : [];
     configData.hardware = configData.hardware || {};
     if (!Array.isArray(configData.hardware.layer_led_gpios)) configData.hardware.layer_led_gpios = [null, null, null];
@@ -2041,6 +2041,11 @@ function normalizeConfig() {
         pedal.label = pedal.label || `Pedale ${index + 1}`;
         pedal.calib_min = Number.isInteger(pedal.calib_min) ? pedal.calib_min : 50;
         pedal.calib_max = Number.isInteger(pedal.calib_max) ? pedal.calib_max : 3450;
+        const legacyPocketOutput = pedal.pocket_master_output || {};
+        const target1HadOutputConfig = Boolean(pedal.target1 && (
+            Object.prototype.hasOwnProperty.call(pedal.target1, 'output_mode') ||
+            Object.prototype.hasOwnProperty.call(pedal.target1, 'midi_cc_enabled')));
+        delete pedal.pocket_master_output;
         pedal.usb_midi = pedal.usb_midi || {};
         pedal.usb_midi.enabled = Boolean(pedal.usb_midi.enabled);
         pedal.usb_midi.channel = Math.min(15, Math.max(0, Number(pedal.usb_midi.channel) || 0));
@@ -2111,6 +2116,21 @@ function normalizeConfig() {
             pedal.target3.curve = Number.isInteger(pedal.target3.curve) ? pedal.target3.curve : 0;
         }
 
+        [['target1', 11 + index], ['target2', 12 + index], ['target3', 13 + index]].forEach(([key, defaultCc]) => {
+            const target = pedal[key];
+            target.output_mode = Number(target.output_mode ?? (target.midi_cc_enabled ? 1 : 0)) === 1 ? 1 : 0;
+            delete target.midi_cc_enabled;
+            target.midi_cc_channel = Math.min(15, Math.max(0, Number(target.midi_cc_channel) || 0));
+            target.midi_cc_number = Math.min(127, Math.max(0, Number(target.midi_cc_number ?? defaultCc)));
+        });
+
+        // Migrate legacy global CC mode to an exclusive CC output on Target 1.
+        if (Number(legacyPocketOutput.mode) === 1 && !target1HadOutputConfig) {
+            pedal.target1.output_mode = 1;
+            pedal.target1.midi_cc_channel = Math.min(15, Math.max(0, Number(legacyPocketOutput.channel) || 0));
+            pedal.target1.midi_cc_number = Math.min(127, Math.max(0, Number(legacyPocketOutput.cc ?? (11 + index))));
+        }
+
         // Keep legacy fields synchronized
         pedal.module_id = pedal.target1.module_id;
         pedal.alg_id = pedal.target1.alg_id;
@@ -2130,6 +2150,9 @@ function normalizeConfig() {
                 item[tKey] = {
                     enabled: tIdx === 0,
                     soft_takeover: false,
+                    output_mode: 0,
+                    midi_cc_channel: 0,
+                    midi_cc_number: 11 + item.pedal_index + tIdx,
                     module_id: tIdx === 0 ? 2 : (tIdx === 1 ? 7 : 8),
                     alg_id: 0,
                     min_val: 0,
@@ -2145,6 +2168,10 @@ function normalizeConfig() {
                 item[tKey].max_val = Number.isInteger(item[tKey].max_val) ? item[tKey].max_val : 100;
                 item[tKey].curve = Number.isInteger(item[tKey].curve) ? item[tKey].curve : 0;
             }
+            item[tKey].output_mode = Number(item[tKey].output_mode ?? (item[tKey].midi_cc_enabled ? 1 : 0)) === 1 ? 1 : 0;
+            delete item[tKey].midi_cc_enabled;
+            item[tKey].midi_cc_channel = Math.min(15, Math.max(0, Number(item[tKey].midi_cc_channel) || 0));
+            item[tKey].midi_cc_number = Math.min(127, Math.max(0, Number(item[tKey].midi_cc_number ?? (11 + item.pedal_index + tIdx))));
         });
     });
     if (!configData.layers.length) configData.layers.push({ id: 'layer-1', name: 'Layer A', buttons: [] });
@@ -2486,6 +2513,37 @@ function updateUsbMidiButton(index, field, value) {
     renderUsbMidiProfiles();
 }
 
+function renderExprTargetOutput(target, targetKey, index, updateFunction, params) {
+    const fieldsDisabled = !target.enabled;
+    return `
+        <div class="form-group">
+            <label>Tipo di uscita</label>
+            <select ${fieldsDisabled ? 'disabled' : ''} onchange="${updateFunction}(${index}, '${targetKey}.output_mode', this.value)">
+                <option value="0" ${target.output_mode === 0 ? 'selected' : ''}>SysEx - Pocket Master</option>
+                <option value="1" ${target.output_mode === 1 ? 'selected' : ''}>CC - MIDI</option>
+            </select>
+        </div>
+        ${target.output_mode === 1 ? `
+            <div class="pin-row">
+                <div class="form-group"><label>Canale CC (1-16)</label><input type="number" min="1" max="16" value="${target.midi_cc_channel + 1}" ${fieldsDisabled ? 'disabled' : ''} onchange="${updateFunction}(${index}, '${targetKey}.midi_cc_channel', this.value)"></div>
+                <div class="form-group"><label>Numero CC (0-127)</label><input type="number" min="0" max="127" value="${target.midi_cc_number}" ${fieldsDisabled ? 'disabled' : ''} onchange="${updateFunction}(${index}, '${targetKey}.midi_cc_number', this.value)"></div>
+            </div>
+            <div class="expr-hint">Questo target invia solo il CC. Curva e Min/Max qui sotto definiscono il valore MIDI 0-127.</div>
+        ` : `
+            <div class="form-group">
+                <label>Modulo Target</label>
+                <select ${fieldsDisabled ? 'disabled' : ''} onchange="${updateFunction}(${index}, '${targetKey}.module_id', this.value)">
+                    ${MODULE_NAMES.map(m => `<option value="${m.id}" ${target.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Parametro Effetto</label>
+                <select ${fieldsDisabled ? 'disabled' : ''} onchange="${updateFunction}(${index}, '${targetKey}.alg_id', this.value)">
+                    ${params.map(p => `<option value="${p.alg}" ${target.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
+                </select>
+            </div>
+        `}`;
+}
 function renderExprPedals() {
     renderExpressionDeadband();
     exprGrid.innerHTML = '';
@@ -2535,6 +2593,11 @@ function renderExprPedals() {
             </div>
 
             <div class="expr-subpanel">
+                <div class="expr-subpanel-title"><span>Uscita Pocket Master</span></div>
+                <div class="expr-hint">Scegli per ogni target se inviare SysEx al Pocket Master oppure un CC MIDI. La scelta è indipendente per ciascun target.</div>
+            </div>
+
+            <div class="expr-subpanel">
                 <div class="expr-subpanel-title"><span>Uscita USB MIDI (solo modalità MIDI)</span></div>
                 <label class="toggle-row"><input type="checkbox" ${exp.usb_midi.enabled ? 'checked' : ''} onchange="updateExprPedal(${i}, 'usb_midi.enabled', this.checked)"> Invia come CC alla DAW</label>
                 <div class="pin-row">
@@ -2555,18 +2618,7 @@ function renderExprPedals() {
                         <input type="checkbox" ${t1.enabled ? 'checked' : ''} onchange="updateExprPedal(${i}, 'target1.enabled', this.checked)"> Attivo
                     </label>
                 </div>
-                <div class="form-group">
-                    <label>Modulo Target</label>
-                    <select onchange="updateExprPedal(${i}, 'target1.module_id', this.value)">
-                        ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t1.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Parametro Effetto</label>
-                    <select onchange="updateExprPedal(${i}, 'target1.alg_id', this.value)">
-                        ${t1Params.map(p => `<option value="${p.alg}" ${t1.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
-                    </select>
-                </div>
+                ${renderExprTargetOutput(t1, 'target1', i, 'updateExprPedal', t1Params)}
                 <div class="expr-range-row">
                     <div class="form-group">
                         <label>Min (%)</label>
@@ -2583,9 +2635,10 @@ function renderExprPedals() {
                         ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t1.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                     </select>
                 </div>
-                <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
+                <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t1.output_mode === 1 ? 'display:none' : ''}">
                     <input type="checkbox" ${t1.soft_takeover ? 'checked' : ''} onchange="updateExprPedal(${i}, 'target1.soft_takeover', this.checked)"> Soft takeover
                 </label>
+                
             </div>
 
             <!-- TARGET 2: Parametro Secondario (Doppio Controllo) -->
@@ -2596,18 +2649,7 @@ function renderExprPedals() {
                         <input type="checkbox" ${t2.enabled ? 'checked' : ''} onchange="updateExprPedal(${i}, 'target2.enabled', this.checked)"> Attivo
                     </label>
                 </div>
-                <div class="form-group">
-                    <label>Modulo Target</label>
-                    <select ${t2.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target2.module_id', this.value)">
-                        ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t2.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Parametro Effetto</label>
-                    <select ${t2.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target2.alg_id', this.value)">
-                        ${t2Params.map(p => `<option value="${p.alg}" ${t2.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
-                    </select>
-                </div>
+                ${renderExprTargetOutput(t2, 'target2', i, 'updateExprPedal', t2Params)}
                 <div class="expr-range-row">
                     <div class="form-group">
                         <label>Min (%)</label>
@@ -2624,9 +2666,10 @@ function renderExprPedals() {
                         ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t2.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                     </select>
                 </div>
-                <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
+                <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t2.output_mode === 1 ? 'display:none' : ''}">
                     <input type="checkbox" ${t2.soft_takeover ? 'checked' : ''} ${t2.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target2.soft_takeover', this.checked)"> Soft takeover
                 </label>
+                
             </div>
 
             <!-- TARGET 3: Parametro Terziario (Controllo Triplo) -->
@@ -2637,18 +2680,7 @@ function renderExprPedals() {
                         <input type="checkbox" ${t3.enabled ? 'checked' : ''} onchange="updateExprPedal(${i}, 'target3.enabled', this.checked)"> Attivo
                     </label>
                 </div>
-                <div class="form-group">
-                    <label>Modulo Target</label>
-                    <select ${t3.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target3.module_id', this.value)">
-                        ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t3.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Parametro Effetto</label>
-                    <select ${t3.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target3.alg_id', this.value)">
-                        ${t3Params.map(p => `<option value="${p.alg}" ${t3.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
-                    </select>
-                </div>
+                ${renderExprTargetOutput(t3, 'target3', i, 'updateExprPedal', t3Params)}
                 <div class="expr-range-row">
                     <div class="form-group">
                         <label>Min (%)</label>
@@ -2665,9 +2697,10 @@ function renderExprPedals() {
                         ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t3.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                     </select>
                 </div>
-                <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
+                <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t3.output_mode === 1 ? 'display:none' : ''}">
                     <input type="checkbox" ${t3.soft_takeover ? 'checked' : ''} ${t3.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target3.soft_takeover', this.checked)"> Soft takeover
                 </label>
+                
             </div>
 
             <div class="card-actions">
@@ -2771,6 +2804,12 @@ function updateExprPedal(index, path, value) {
             pedal[targetKey].enabled = Boolean(value);
         } else if (sub === 'soft_takeover') {
             pedal[targetKey].soft_takeover = Boolean(value);
+        } else if (sub === 'output_mode') {
+            pedal[targetKey].output_mode = Number(value) === 1 ? 1 : 0;
+        } else if (sub === 'midi_cc_channel') {
+            pedal[targetKey].midi_cc_channel = Math.min(15, Math.max(0, (parseInt(value) || 1) - 1));
+        } else if (sub === 'midi_cc_number') {
+            pedal[targetKey].midi_cc_number = Math.min(127, Math.max(0, parseInt(value) || 0));
         } else if (sub === 'module_id') {
             pedal[targetKey].module_id = parseInt(value);
             pedal[targetKey].alg_id = 0;
@@ -2823,6 +2862,9 @@ function addExprPedal() {
         target1: {
             enabled: true,
             soft_takeover: false,
+            output_mode: 0,
+            midi_cc_channel: 0,
+            midi_cc_number: 10 + number,
             module_id: 7,
             alg_id: 0,
             min_val: 0,
@@ -2832,6 +2874,9 @@ function addExprPedal() {
         target2: {
             enabled: false,
             soft_takeover: false,
+            output_mode: 0,
+            midi_cc_channel: 0,
+            midi_cc_number: 11 + number,
             module_id: 8,
             alg_id: 0,
             min_val: 0,
@@ -2841,6 +2886,9 @@ function addExprPedal() {
         target3: {
             enabled: false,
             soft_takeover: false,
+            output_mode: 0,
+            midi_cc_channel: 0,
+            midi_cc_number: 12 + number,
             module_id: 0,
             alg_id: 0,
             min_val: 0,
@@ -2962,18 +3010,7 @@ function renderExprPatchSettings() {
                                     <input type="checkbox" ${t1.enabled ? 'checked' : ''} onchange="updateExprPatchSetting(${idx}, 'target1.enabled', this.checked)"> Attivo
                                 </label>
                             </div>
-                            <div class="form-group">
-                                <label>Modulo Target</label>
-                                <select ${t1.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target1.module_id', this.value)">
-                                    ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t1.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Parametro Effetto</label>
-                                <select ${t1.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target1.alg_id', this.value)">
-                                    ${t1Params.map(p => `<option value="${p.alg}" ${t1.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
-                                </select>
-                            </div>
+                            ${renderExprTargetOutput(t1, 'target1', idx, 'updateExprPatchSetting', t1Params)}
                             <div class="expr-range-row">
                                 <div class="form-group">
                                     <label>Min (%)</label>
@@ -2990,9 +3027,10 @@ function renderExprPatchSettings() {
                                     ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t1.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                                 </select>
                             </div>
-                            <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
+                            <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t1.output_mode === 1 ? 'display:none' : ''}">
                                 <input type="checkbox" ${t1.soft_takeover ? 'checked' : ''} ${t1.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target1.soft_takeover', this.checked)"> Soft takeover
                             </label>
+                            
                         </div>
 
                         <!-- TARGET 2 -->
@@ -3003,18 +3041,7 @@ function renderExprPatchSettings() {
                                     <input type="checkbox" ${t2.enabled ? 'checked' : ''} onchange="updateExprPatchSetting(${idx}, 'target2.enabled', this.checked)"> Attivo
                                 </label>
                             </div>
-                            <div class="form-group">
-                                <label>Modulo Target</label>
-                                <select ${t2.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target2.module_id', this.value)">
-                                    ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t2.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Parametro Effetto</label>
-                                <select ${t2.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target2.alg_id', this.value)">
-                                    ${t2Params.map(p => `<option value="${p.alg}" ${t2.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
-                                </select>
-                            </div>
+                            ${renderExprTargetOutput(t2, 'target2', idx, 'updateExprPatchSetting', t2Params)}
                             <div class="expr-range-row">
                                 <div class="form-group">
                                     <label>Min (%)</label>
@@ -3031,9 +3058,10 @@ function renderExprPatchSettings() {
                                     ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t2.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                                 </select>
                             </div>
-                            <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
+                            <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t2.output_mode === 1 ? 'display:none' : ''}">
                                 <input type="checkbox" ${t2.soft_takeover ? 'checked' : ''} ${t2.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target2.soft_takeover', this.checked)"> Soft takeover
                             </label>
+                            
                         </div>
 
                         <!-- TARGET 3 -->
@@ -3044,18 +3072,7 @@ function renderExprPatchSettings() {
                                     <input type="checkbox" ${t3.enabled ? 'checked' : ''} onchange="updateExprPatchSetting(${idx}, 'target3.enabled', this.checked)"> Attivo
                                 </label>
                             </div>
-                            <div class="form-group">
-                                <label>Modulo Target</label>
-                                <select ${t3.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target3.module_id', this.value)">
-                                    ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t3.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Parametro Effetto</label>
-                                <select ${t3.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target3.alg_id', this.value)">
-                                    ${t3Params.map(p => `<option value="${p.alg}" ${t3.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
-                                </select>
-                            </div>
+                            ${renderExprTargetOutput(t3, 'target3', idx, 'updateExprPatchSetting', t3Params)}
                             <div class="expr-range-row">
                                 <div class="form-group">
                                     <label>Min (%)</label>
@@ -3072,9 +3089,10 @@ function renderExprPatchSettings() {
                                     ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t3.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                                 </select>
                             </div>
-                            <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
+                            <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t3.output_mode === 1 ? 'display:none' : ''}">
                                 <input type="checkbox" ${t3.soft_takeover ? 'checked' : ''} ${t3.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target3.soft_takeover', this.checked)"> Soft takeover
                             </label>
+                            
                         </div>
 
                         <div class="card-actions" style="margin-top: 10px;">
@@ -3124,6 +3142,9 @@ function addExprPatchSetting() {
         target1: {
             enabled: true,
             soft_takeover: false,
+            output_mode: 0,
+            midi_cc_channel: 0,
+            midi_cc_number: 11,
             module_id: 2,
             alg_id: 0,
             min_val: 0,
@@ -3133,6 +3154,9 @@ function addExprPatchSetting() {
         target2: {
             enabled: false,
             soft_takeover: false,
+            output_mode: 0,
+            midi_cc_channel: 0,
+            midi_cc_number: 12,
             module_id: 7,
             alg_id: 0,
             min_val: 0,
@@ -3142,6 +3166,9 @@ function addExprPatchSetting() {
         target3: {
             enabled: false,
             soft_takeover: false,
+            output_mode: 0,
+            midi_cc_channel: 0,
+            midi_cc_number: 13,
             module_id: 8,
             alg_id: 0,
             min_val: 0,
@@ -3172,6 +3199,12 @@ function updateExprPatchSetting(index, path, value) {
             item[targetKey].enabled = Boolean(value);
         } else if (sub === 'soft_takeover') {
             item[targetKey].soft_takeover = Boolean(value);
+        } else if (sub === 'output_mode') {
+            item[targetKey].output_mode = Number(value) === 1 ? 1 : 0;
+        } else if (sub === 'midi_cc_channel') {
+            item[targetKey].midi_cc_channel = Math.min(15, Math.max(0, (parseInt(value) || 1) - 1));
+        } else if (sub === 'midi_cc_number') {
+            item[targetKey].midi_cc_number = Math.min(127, Math.max(0, parseInt(value) || 0));
         } else if (sub === 'module_id') {
             item[targetKey].module_id = parseInt(value);
             item[targetKey].alg_id = 0;
