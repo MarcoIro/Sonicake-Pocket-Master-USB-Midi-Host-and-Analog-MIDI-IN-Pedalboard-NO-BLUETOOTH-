@@ -1713,12 +1713,24 @@ const ACTION_NAMES = {
     6: "Preset Down",
     7: "Custom SysEx",
     8: "CC personalizzato",
-    9: "Scena / Patch Jump"
+    9: "Scena / Patch Jump",
+    10: "Pocket Master: scena base (CC 85)",
+    11: "Pocket Master: scena 1 (CC 82)",
+    12: "Pocket Master: scena 2 (CC 83)",
+    13: "FREEZE (CC 114, toggle 127/0)"
 };
 const BUTTON_MODE_NAMES = {
     0: "Toggle standard",
     1: "Momentaneo",
-    2: "Toggle con hold"
+    2: "Toggle con hold",
+    3: "Toggle alla pressione lunga"
+};
+const CC_BUTTON_MODE_NAMES = {
+    0: "Toggle CC 127/0",
+    1: "Momentaneo (valore configurato/0)",
+    2: "Toggle CC 127/0 con hold",
+    3: "Toggle CC 127/0 alla pressione lunga",
+    4: "Valore CC fisso configurato"
 };
 const MAX_BUTTONS = 16;
 const MAX_LAYERS = 6;
@@ -2025,7 +2037,7 @@ function normalizeConfig() {
     configData = configData || {};
     configData.settings = configData.settings || {};
     configData.settings.expression_deadband = Math.min(1000, Math.max(0, Number(configData.settings.expression_deadband ?? 25) || 0));
-    configData.version = Math.max(Number(configData.version) || 1, 11);
+    configData.version = Math.max(Number(configData.version) || 1, 12);
     configData.layers = Array.isArray(configData.layers) ? configData.layers : [];
     configData.hardware = configData.hardware || {};
     if (!Array.isArray(configData.hardware.layer_led_gpios)) configData.hardware.layer_led_gpios = [null, null, null];
@@ -2041,11 +2053,6 @@ function normalizeConfig() {
         pedal.label = pedal.label || `Pedale ${index + 1}`;
         pedal.calib_min = Number.isInteger(pedal.calib_min) ? pedal.calib_min : 50;
         pedal.calib_max = Number.isInteger(pedal.calib_max) ? pedal.calib_max : 3450;
-        const legacyPocketOutput = pedal.pocket_master_output || {};
-        const target1HadOutputConfig = Boolean(pedal.target1 && (
-            Object.prototype.hasOwnProperty.call(pedal.target1, 'output_mode') ||
-            Object.prototype.hasOwnProperty.call(pedal.target1, 'midi_cc_enabled')));
-        delete pedal.pocket_master_output;
         pedal.usb_midi = pedal.usb_midi || {};
         pedal.usb_midi.enabled = Boolean(pedal.usb_midi.enabled);
         pedal.usb_midi.channel = Math.min(15, Math.max(0, Number(pedal.usb_midi.channel) || 0));
@@ -2116,20 +2123,12 @@ function normalizeConfig() {
             pedal.target3.curve = Number.isInteger(pedal.target3.curve) ? pedal.target3.curve : 0;
         }
 
-        [['target1', 11 + index], ['target2', 12 + index], ['target3', 13 + index]].forEach(([key, defaultCc]) => {
+        [['target1', 11], ['target2', 12], ['target3', 13]].forEach(([key, ccOffset]) => {
             const target = pedal[key];
-            target.output_mode = Number(target.output_mode ?? (target.midi_cc_enabled ? 1 : 0)) === 1 ? 1 : 0;
-            delete target.midi_cc_enabled;
+            target.output_mode = [0, 1].includes(Number(target.output_mode)) ? Number(target.output_mode) : 0;
             target.midi_cc_channel = Math.min(15, Math.max(0, Number(target.midi_cc_channel) || 0));
-            target.midi_cc_number = Math.min(127, Math.max(0, Number(target.midi_cc_number ?? defaultCc)));
+            target.midi_cc_number = Math.min(127, Math.max(0, Number.isInteger(target.midi_cc_number) ? target.midi_cc_number : ccOffset + index));
         });
-
-        // Migrate legacy global CC mode to an exclusive CC output on Target 1.
-        if (Number(legacyPocketOutput.mode) === 1 && !target1HadOutputConfig) {
-            pedal.target1.output_mode = 1;
-            pedal.target1.midi_cc_channel = Math.min(15, Math.max(0, Number(legacyPocketOutput.channel) || 0));
-            pedal.target1.midi_cc_number = Math.min(127, Math.max(0, Number(legacyPocketOutput.cc ?? (11 + index))));
-        }
 
         // Keep legacy fields synchronized
         pedal.module_id = pedal.target1.module_id;
@@ -2150,9 +2149,6 @@ function normalizeConfig() {
                 item[tKey] = {
                     enabled: tIdx === 0,
                     soft_takeover: false,
-                    output_mode: 0,
-                    midi_cc_channel: 0,
-                    midi_cc_number: 11 + item.pedal_index + tIdx,
                     module_id: tIdx === 0 ? 2 : (tIdx === 1 ? 7 : 8),
                     alg_id: 0,
                     min_val: 0,
@@ -2168,10 +2164,9 @@ function normalizeConfig() {
                 item[tKey].max_val = Number.isInteger(item[tKey].max_val) ? item[tKey].max_val : 100;
                 item[tKey].curve = Number.isInteger(item[tKey].curve) ? item[tKey].curve : 0;
             }
-            item[tKey].output_mode = Number(item[tKey].output_mode ?? (item[tKey].midi_cc_enabled ? 1 : 0)) === 1 ? 1 : 0;
-            delete item[tKey].midi_cc_enabled;
+            item[tKey].output_mode = [0, 1].includes(Number(item[tKey].output_mode)) ? Number(item[tKey].output_mode) : 0;
             item[tKey].midi_cc_channel = Math.min(15, Math.max(0, Number(item[tKey].midi_cc_channel) || 0));
-            item[tKey].midi_cc_number = Math.min(127, Math.max(0, Number(item[tKey].midi_cc_number ?? (11 + item.pedal_index + tIdx))));
+            item[tKey].midi_cc_number = Math.min(127, Math.max(0, Number.isInteger(item[tKey].midi_cc_number) ? item[tKey].midi_cc_number : 11 + tIdx));
         });
     });
     if (!configData.layers.length) configData.layers.push({ id: 'layer-1', name: 'Layer A', buttons: [] });
@@ -2234,17 +2229,36 @@ function normalizeConfig() {
         layer.buttons.forEach((button, index) => {
             button.button_id = button.button_id || configData.hardware.buttons[button.index ?? index]?.id;
             button.enabled = button.enabled !== false;
-            button.mode = [0, 1, 2].includes(Number(button.mode)) ? Number(button.mode) : 0;
+            button.mode = [0, 1, 2, 3, 4].includes(Number(button.mode)) ? Number(button.mode) : 0;
             button.hold_ms = Math.min(10000, Math.max(100, Number(button.hold_ms) || 1000));
             button.hold_bidirectional = Boolean(button.hold_bidirectional);
             button.layer_short_mask = Number.isInteger(button.layer_short_mask) ? button.layer_short_mask : (1 << configData.layers.length) - 1;
             button.layer_long_mask = Number.isInteger(button.layer_long_mask) ? button.layer_long_mask : 0;
             button.default_scene_patch = Number.isInteger(button.default_scene_patch) ? button.default_scene_patch : null;
             button.scene_mappings = Array.isArray(button.scene_mappings) ? button.scene_mappings : [];
+            button.functions = Array.isArray(button.functions) ? button.functions.slice(0, 3) : [];
+            button.functions.forEach(fn => {
+                fn.enabled = fn.enabled !== false;
+                fn.action = Number(fn.action) || 0;
+                fn.mode = [0, 1, 2, 3, 4].includes(Number(fn.mode)) ? Number(fn.mode) : 0;
+                fn.trigger = Number(fn.trigger) === 1 ? 1 : 0;
+                fn.hold_ms = Math.min(10000, Math.max(100, Number(fn.hold_ms) || 1000));
+                fn.param1 = Number(fn.param1) || 0;
+                fn.layer_short_mask = Number.isInteger(fn.layer_short_mask) ? fn.layer_short_mask : (1 << configData.layers.length) - 1;
+                fn.layer_long_mask = Number.isInteger(fn.layer_long_mask) ? fn.layer_long_mask : 0;
+                fn.hold_bidirectional = Boolean(fn.hold_bidirectional);
+                fn.cc_channel = Number(fn.cc_channel) || 0;
+                fn.cc_number = Number(fn.cc_number) || 0;
+                fn.cc_value = Number(fn.cc_value) || 0;
+                fn.label = String(fn.label || '').slice(0, 15);
+                fn.sysex_hex = String(fn.sysex_hex || '').slice(0, 127);
+                fn.scene_mappings = Array.isArray(fn.scene_mappings) ? fn.scene_mappings : [];
+                fn.default_scene_patch = Number.isInteger(fn.default_scene_patch) ? fn.default_scene_patch : 255;
+            });
         });
         configData.hardware.buttons.forEach((hardwareButton, index) => {
             if (!layer.buttons.some(button => button.button_id === hardwareButton.id)) {
-                layer.buttons.push({ button_id: hardwareButton.id, enabled: true, action: 0, mode: 0, hold_ms: 1000, hold_bidirectional: false, param1: 0, label: `Tasto ${index + 1}`, default_scene_patch: null, scene_mappings: [] });
+                layer.buttons.push({ button_id: hardwareButton.id, enabled: true, action: 0, mode: 0, hold_ms: 1000, hold_bidirectional: false, param1: 0, label: `Tasto ${index + 1}`, default_scene_patch: null, scene_mappings: [], functions: [] });
             }
         });
     });
@@ -2380,8 +2394,12 @@ function renderButtons() {
                     <div class="form-group"><label>Canale (1–16)</label><input type="number" min="1" max="16" value="${(btn.cc_channel ?? 0) + 1}" onchange="updateBtnParam(${activeLayer}, '${hardwareButton.id}', 'cc_channel', this.value)"></div>
                     <div class="form-group"><label>Controller (0–127)</label><input type="number" min="0" max="127" value="${btn.cc_number ?? 0}" onchange="updateBtnParam(${activeLayer}, '${hardwareButton.id}', 'cc_number', this.value)"></div>
                 </div>
-                <div class="form-group"><label>Valore (0–127)</label><input type="number" min="0" max="127" value="${btn.cc_value ?? 0}" onchange="updateBtnParam(${activeLayer}, '${hardwareButton.id}', 'cc_value', this.value)"></div>
+                ${[1, 4].includes(btn.mode) ? `<div class="form-group"><label>Valore CC (0–127)</label><input type="number" min="0" max="127" value="${btn.cc_value ?? 0}" onchange="updateBtnParam(${activeLayer}, '${hardwareButton.id}', 'cc_value', this.value)"></div>` : '<small>Il toggle invia CC 127 quando è attivo e CC 0 quando è spento.</small>'}
             `;
+        } else if ([10, 11, 12].includes(btn.action)) {
+            paramHTML = `<small>Invia il comando scena nativo Pocket Master con valore fisso 127. Questa azione è distinta dal CC personalizzato e da Scena / Patch Jump.</small>`;
+        } else if (btn.action === 13) {
+            paramHTML = `<small>FREEZE invia CC 114: 127 alla prima pressione, 0 alla seconda. Il LED si spegne al cambio patch e la successiva pressione riparte da 127.</small>`;
         } else if (btn.action === 9) {
             btn.scene_mappings = Array.isArray(btn.scene_mappings) ? btn.scene_mappings : [];
             const mappingsHTML = btn.scene_mappings.map((m, mIdx) => `
@@ -2468,12 +2486,55 @@ function renderButtons() {
                 </select>
             </div>
             ${paramHTML}
+            ${[2, 8].includes(btn.action) ? `<div class="form-group"><label>Comportamento</label><select onchange="updateBtnMode(${activeLayer}, '${hardwareButton.id}', this.value)">${Object.entries(btn.action === 8 ? CC_BUTTON_MODE_NAMES : BUTTON_MODE_NAMES).map(([id, name]) => `<option value="${id}" ${btn.mode == id ? 'selected' : ''}>${name}</option>`).join('')}</select></div>` : ''}
+            ${[2, 8].includes(btn.action) && btn.mode === 2 ? `<div class="form-group"><label>Soglia toggle con hold (ms)</label><input type="number" min="100" max="10000" step="50" value="${btn.hold_ms || 1000}" onchange="updateBtnParam(${activeLayer}, '${hardwareButton.id}', 'hold_ms', this.value)"></div><label class="toggle-row"><input type="checkbox" ${btn.hold_bidirectional ? 'checked' : ''} onchange="updateBtnParam(${activeLayer}, '${hardwareButton.id}', 'hold_bidirectional', this.checked)"> Hold bidirezionale</label>` : ''}
+            <div class="expr-subpanel" style="margin-top:10px">
+                <div class="expr-subpanel-title" style="display:flex;justify-content:space-between;align-items:center">
+                    <span>Funzioni aggiuntive (${btn.functions.length}/3)</span>
+                    ${btn.functions.length < 3 ? `<button class="btn primary-btn small-btn" onclick="addExtraButtonFunction(${activeLayer}, '${hardwareButton.id}')">+ Funzione</button>` : ''}
+                </div>
+                ${btn.functions.map((fn, fi) => renderExtraButtonFunction(activeLayer, hardwareButton.id, fn, fi)).join('')}
+            </div>
             <div class="card-actions"><button class="btn danger-btn small-btn" onclick="removeButton('${hardwareButton.id}')">Rimuovi tasto</button></div>
         `;
         buttonsGrid.appendChild(card);
     });
     renderExpressionKillswitch();
     renderUsbMidiProfiles();
+}
+
+function renderExtraButtonFunction(layer, buttonId, fn, index) {
+    const field = (key, value, label, min = 0, max = 127) => `<div class="form-group"><label>${label}</label><input type="number" min="${min}" max="${max}" value="${value ?? 0}" onchange="updateExtraButtonFunction(${layer}, '${buttonId}', ${index}, '${key}', this.value)"></div>`;
+    let actionFields = '';
+    if (fn.action === 1) actionFields = `<div class="form-group"><label>Modulo</label><select onchange="updateExtraButtonFunction(${layer}, '${buttonId}', ${index}, 'param1', this.value)">${MODULE_NAMES.map(m => `<option value="${m.id}" ${fn.param1 === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}</select></div>`;
+    else if (fn.action === 2) actionFields = field('param1', fn.param1, 'Preset (0–99)', 0, 99);
+    else if (fn.action === 4) {
+        const choices = key => configData.layers.map((item, layerIndex) => `<label class="toggle-row"><input type="checkbox" ${(Number(fn[key]) & (1 << layerIndex)) ? 'checked' : ''} onchange="updateExtraLayerMask(${layer}, '${buttonId}', ${index}, '${key}', ${layerIndex}, this.checked)"> Layer ${String.fromCharCode(65 + layerIndex)} (${item.name})</label>`).join('');
+        actionFields = `<div class="expr-subpanel"><strong>Layer con pressione breve</strong>${choices('layer_short_mask')}<strong style="display:block;margin-top:8px">Layer con pressione lunga</strong>${choices('layer_long_mask')}</div>`;
+    }
+    else if (fn.action === 8) actionFields = `<div class="pin-row">${field('cc_channel', Number(fn.cc_channel) + 1, 'Canale MIDI (1–16)', 1, 16)}${field('cc_number', fn.cc_number, 'Numero CC')}</div>${[1, 4].includes(fn.mode) ? field('cc_value', fn.cc_value, 'Valore CC') : '<small>Il toggle invia CC 127 quando è attivo e CC 0 quando è spento.</small>'}`;
+    else if ([10, 11, 12].includes(fn.action)) actionFields = `<small>Invia il comando scena nativo Pocket Master con valore fisso 127.</small>`;
+    else if (fn.action === 13) actionFields = `<small>FREEZE invia CC 114: 127 alla prima pressione, 0 alla seconda. Il LED si spegne al cambio patch e la successiva pressione riparte da 127.</small>`;
+    else if (fn.action === 7) actionFields = `<div class="form-group"><label>SysEx Hex</label><input type="text" value="${fn.sysex_hex || ''}" onchange="updateExtraButtonFunction(${layer}, '${buttonId}', ${index}, 'sysex_hex', this.value)"></div>`;
+    else if (fn.action === 9) actionFields = field('default_scene_patch', fn.default_scene_patch < 100 ? fn.default_scene_patch : 0, 'Patch di destinazione (0–99)', 0, 99);
+    const supportsBehavior = [1, 2, 8, 9].includes(fn.action);
+    const pressMode = supportsBehavior
+        ? (fn.trigger === 1 ? (fn.mode === 1 ? 'long_momentary' : fn.mode === 4 ? 'long_cc_fixed' : 'long_toggle') : (fn.mode === 1 ? 'short_momentary' : fn.mode === 2 ? 'short_hold' : fn.mode === 4 ? 'short_cc_fixed' : 'short_toggle'))
+        : (fn.trigger === 1 ? 'long_action' : 'short_action');
+    const pressModeOptions = supportsBehavior
+        ? [['short_toggle', 'Toggle 127/0 con pressione breve'], ['short_momentary', 'Momentaneo (valore/0)'], ['short_hold', 'Toggle 127/0 con hold'], ['long_toggle', 'Toggle 127/0 alla pressione lunga'], ['long_momentary', 'Momentaneo alla pressione lunga'], ...(fn.action === 8 ? [['short_cc_fixed', 'CC fisso con pressione breve'], ['long_cc_fixed', 'CC fisso alla pressione lunga']] : [])]
+        : [['short_action', 'Pressione breve'], ['long_action', 'Pressione lunga']];
+    return `<div class="expr-subpanel" style="margin-top:8px">
+        <div class="btn-card-header"><strong>Funzione ${index + 2}</strong><button class="btn danger-btn small-btn" onclick="removeExtraButtonFunction(${layer}, '${buttonId}', ${index})">Rimuovi</button></div>
+        <label class="toggle-row"><input type="checkbox" ${fn.enabled ? 'checked' : ''} onchange="updateExtraButtonFunction(${layer}, '${buttonId}', ${index}, 'enabled', this.checked)"> Abilitata</label>
+        <div class="form-group"><label>Azione</label><select onchange="updateExtraButtonFunction(${layer}, '${buttonId}', ${index}, 'action', this.value)">${Object.entries(ACTION_NAMES).map(([id, name]) => `<option value="${id}" ${fn.action == id ? 'selected' : ''}>${name}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Modalità pressione</label><select onchange="updateExtraPressMode(${layer}, '${buttonId}', ${index}, this.value)">${pressModeOptions.map(([id, name]) => `<option value="${id}" ${pressMode === id ? 'selected' : ''}>${name}</option>`).join('')}</select></div>
+        ${fn.mode === 2 ? field('hold_ms', fn.hold_ms, 'Soglia toggle con hold (ms)', 100, 10000) : ''}
+        ${(fn.mode === 2 && [1, 2, 8, 9].includes(fn.action)) ? `<label class="toggle-row"><input type="checkbox" ${fn.hold_bidirectional ? 'checked' : ''} onchange="updateExtraButtonFunction(${layer}, '${buttonId}', ${index}, 'hold_bidirectional', this.checked)"> Hold bidirezionale</label>` : ''}
+        ${fn.trigger === 1 && fn.mode !== 2 ? '<small>La soglia pressione lunga usa il valore globale configurato nel firmware.</small>' : ''}
+        <div class="form-group"><label>Etichetta</label><input type="text" maxlength="15" value="${fn.label || ''}" onchange="updateExtraButtonFunction(${layer}, '${buttonId}', ${index}, 'label', this.value)"></div>
+        ${actionFields}
+    </div>`;
 }
 
 function renderUsbMidiProfiles() {
@@ -2513,37 +2574,23 @@ function updateUsbMidiButton(index, field, value) {
     renderUsbMidiProfiles();
 }
 
-function renderExprTargetOutput(target, targetKey, index, updateFunction, params) {
-    const fieldsDisabled = !target.enabled;
+function exprTargetOutputFields(index, path, target, enabled, updateFunction) {
+    const disabled = enabled ? '' : 'disabled';
+    const isCc = target.output_mode === 1;
     return `
         <div class="form-group">
-            <label>Tipo di uscita</label>
-            <select ${fieldsDisabled ? 'disabled' : ''} onchange="${updateFunction}(${index}, '${targetKey}.output_mode', this.value)">
-                <option value="0" ${target.output_mode === 0 ? 'selected' : ''}>SysEx - Pocket Master</option>
-                <option value="1" ${target.output_mode === 1 ? 'selected' : ''}>CC - MIDI</option>
+            <label>Tipo uscita</label>
+            <select ${disabled} onchange="${updateFunction}(${index}, '${path}.output_mode', this.value)">
+                <option value="0" ${!isCc ? 'selected' : ''}>Parametro Pocket Master (SysEx)</option>
+                <option value="1" ${isCc ? 'selected' : ''}>MIDI CC</option>
             </select>
         </div>
-        ${target.output_mode === 1 ? `
-            <div class="pin-row">
-                <div class="form-group"><label>Canale CC (1-16)</label><input type="number" min="1" max="16" value="${target.midi_cc_channel + 1}" ${fieldsDisabled ? 'disabled' : ''} onchange="${updateFunction}(${index}, '${targetKey}.midi_cc_channel', this.value)"></div>
-                <div class="form-group"><label>Numero CC (0-127)</label><input type="number" min="0" max="127" value="${target.midi_cc_number}" ${fieldsDisabled ? 'disabled' : ''} onchange="${updateFunction}(${index}, '${targetKey}.midi_cc_number', this.value)"></div>
-            </div>
-            <div class="expr-hint">Questo target invia solo il CC. Curva e Min/Max qui sotto definiscono il valore MIDI 0-127.</div>
-        ` : `
-            <div class="form-group">
-                <label>Modulo Target</label>
-                <select ${fieldsDisabled ? 'disabled' : ''} onchange="${updateFunction}(${index}, '${targetKey}.module_id', this.value)">
-                    ${MODULE_NAMES.map(m => `<option value="${m.id}" ${target.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Parametro Effetto</label>
-                <select ${fieldsDisabled ? 'disabled' : ''} onchange="${updateFunction}(${index}, '${targetKey}.alg_id', this.value)">
-                    ${params.map(p => `<option value="${p.alg}" ${target.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
-                </select>
-            </div>
-        `}`;
+        ${isCc ? `<div class="pin-row">
+            <div class="form-group"><label>Canale MIDI (1–16)</label><input type="number" min="1" max="16" value="${target.midi_cc_channel + 1}" ${disabled} onchange="${updateFunction}(${index}, '${path}.midi_cc_channel', this.value)"></div>
+            <div class="form-group"><label>Numero CC (0–127)</label><input type="number" min="0" max="127" value="${target.midi_cc_number}" ${disabled} onchange="${updateFunction}(${index}, '${path}.midi_cc_number', this.value)"></div>
+        </div>` : ''}`;
 }
+
 function renderExprPedals() {
     renderExpressionDeadband();
     exprGrid.innerHTML = '';
@@ -2593,11 +2640,6 @@ function renderExprPedals() {
             </div>
 
             <div class="expr-subpanel">
-                <div class="expr-subpanel-title"><span>Uscita Pocket Master</span></div>
-                <div class="expr-hint">Scegli per ogni target se inviare SysEx al Pocket Master oppure un CC MIDI. La scelta è indipendente per ciascun target.</div>
-            </div>
-
-            <div class="expr-subpanel">
                 <div class="expr-subpanel-title"><span>Uscita USB MIDI (solo modalità MIDI)</span></div>
                 <label class="toggle-row"><input type="checkbox" ${exp.usb_midi.enabled ? 'checked' : ''} onchange="updateExprPedal(${i}, 'usb_midi.enabled', this.checked)"> Invia come CC alla DAW</label>
                 <div class="pin-row">
@@ -2618,7 +2660,19 @@ function renderExprPedals() {
                         <input type="checkbox" ${t1.enabled ? 'checked' : ''} onchange="updateExprPedal(${i}, 'target1.enabled', this.checked)"> Attivo
                     </label>
                 </div>
-                ${renderExprTargetOutput(t1, 'target1', i, 'updateExprPedal', t1Params)}
+                ${exprTargetOutputFields(i, 'target1', t1, t1.enabled, 'updateExprPedal')}
+                <div class="form-group" style="${t1.output_mode === 1 ? 'display:none' : ''}">
+                    <label>Modulo Target</label>
+                    <select onchange="updateExprPedal(${i}, 'target1.module_id', this.value)">
+                        ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t1.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group" style="${t1.output_mode === 1 ? 'display:none' : ''}">
+                    <label>Parametro Effetto</label>
+                    <select onchange="updateExprPedal(${i}, 'target1.alg_id', this.value)">
+                        ${t1Params.map(p => `<option value="${p.alg}" ${t1.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
+                    </select>
+                </div>
                 <div class="expr-range-row">
                     <div class="form-group">
                         <label>Min (%)</label>
@@ -2635,10 +2689,9 @@ function renderExprPedals() {
                         ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t1.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                     </select>
                 </div>
-                <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t1.output_mode === 1 ? 'display:none' : ''}">
+                <label class="toggle-row" style="${t1.output_mode === 1 ? 'display:none' : ''}" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
                     <input type="checkbox" ${t1.soft_takeover ? 'checked' : ''} onchange="updateExprPedal(${i}, 'target1.soft_takeover', this.checked)"> Soft takeover
                 </label>
-                
             </div>
 
             <!-- TARGET 2: Parametro Secondario (Doppio Controllo) -->
@@ -2649,7 +2702,19 @@ function renderExprPedals() {
                         <input type="checkbox" ${t2.enabled ? 'checked' : ''} onchange="updateExprPedal(${i}, 'target2.enabled', this.checked)"> Attivo
                     </label>
                 </div>
-                ${renderExprTargetOutput(t2, 'target2', i, 'updateExprPedal', t2Params)}
+                ${exprTargetOutputFields(i, 'target2', t2, t2.enabled, 'updateExprPedal')}
+                <div class="form-group" style="${t2.output_mode === 1 ? 'display:none' : ''}">
+                    <label>Modulo Target</label>
+                    <select ${t2.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target2.module_id', this.value)">
+                        ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t2.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group" style="${t2.output_mode === 1 ? 'display:none' : ''}">
+                    <label>Parametro Effetto</label>
+                    <select ${t2.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target2.alg_id', this.value)">
+                        ${t2Params.map(p => `<option value="${p.alg}" ${t2.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
+                    </select>
+                </div>
                 <div class="expr-range-row">
                     <div class="form-group">
                         <label>Min (%)</label>
@@ -2666,10 +2731,9 @@ function renderExprPedals() {
                         ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t2.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                     </select>
                 </div>
-                <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t2.output_mode === 1 ? 'display:none' : ''}">
+                <label class="toggle-row" style="${t2.output_mode === 1 ? 'display:none' : ''}" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
                     <input type="checkbox" ${t2.soft_takeover ? 'checked' : ''} ${t2.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target2.soft_takeover', this.checked)"> Soft takeover
                 </label>
-                
             </div>
 
             <!-- TARGET 3: Parametro Terziario (Controllo Triplo) -->
@@ -2680,7 +2744,19 @@ function renderExprPedals() {
                         <input type="checkbox" ${t3.enabled ? 'checked' : ''} onchange="updateExprPedal(${i}, 'target3.enabled', this.checked)"> Attivo
                     </label>
                 </div>
-                ${renderExprTargetOutput(t3, 'target3', i, 'updateExprPedal', t3Params)}
+                ${exprTargetOutputFields(i, 'target3', t3, t3.enabled, 'updateExprPedal')}
+                <div class="form-group" style="${t3.output_mode === 1 ? 'display:none' : ''}">
+                    <label>Modulo Target</label>
+                    <select ${t3.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target3.module_id', this.value)">
+                        ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t3.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group" style="${t3.output_mode === 1 ? 'display:none' : ''}">
+                    <label>Parametro Effetto</label>
+                    <select ${t3.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target3.alg_id', this.value)">
+                        ${t3Params.map(p => `<option value="${p.alg}" ${t3.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
+                    </select>
+                </div>
                 <div class="expr-range-row">
                     <div class="form-group">
                         <label>Min (%)</label>
@@ -2697,10 +2773,9 @@ function renderExprPedals() {
                         ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t3.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                     </select>
                 </div>
-                <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t3.output_mode === 1 ? 'display:none' : ''}">
+                <label class="toggle-row" style="${t3.output_mode === 1 ? 'display:none' : ''}" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
                     <input type="checkbox" ${t3.soft_takeover ? 'checked' : ''} ${t3.enabled ? '' : 'disabled'} onchange="updateExprPedal(${i}, 'target3.soft_takeover', this.checked)"> Soft takeover
                 </label>
-                
             </div>
 
             <div class="card-actions">
@@ -2805,7 +2880,7 @@ function updateExprPedal(index, path, value) {
         } else if (sub === 'soft_takeover') {
             pedal[targetKey].soft_takeover = Boolean(value);
         } else if (sub === 'output_mode') {
-            pedal[targetKey].output_mode = Number(value) === 1 ? 1 : 0;
+            pedal[targetKey].output_mode = Math.min(1, Math.max(0, parseInt(value) || 0));
         } else if (sub === 'midi_cc_channel') {
             pedal[targetKey].midi_cc_channel = Math.min(15, Math.max(0, (parseInt(value) || 1) - 1));
         } else if (sub === 'midi_cc_number') {
@@ -3010,7 +3085,19 @@ function renderExprPatchSettings() {
                                     <input type="checkbox" ${t1.enabled ? 'checked' : ''} onchange="updateExprPatchSetting(${idx}, 'target1.enabled', this.checked)"> Attivo
                                 </label>
                             </div>
-                            ${renderExprTargetOutput(t1, 'target1', idx, 'updateExprPatchSetting', t1Params)}
+                            ${exprTargetOutputFields(idx, 'target1', t1, t1.enabled, 'updateExprPatchSetting')}
+                            <div class="form-group" style="${t1.output_mode === 1 ? 'display:none' : ''}">
+                                <label>Modulo Target</label>
+                                <select ${t1.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target1.module_id', this.value)">
+                                    ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t1.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group" style="${t1.output_mode === 1 ? 'display:none' : ''}">
+                                <label>Parametro Effetto</label>
+                                <select ${t1.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target1.alg_id', this.value)">
+                                    ${t1Params.map(p => `<option value="${p.alg}" ${t1.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
+                                </select>
+                            </div>
                             <div class="expr-range-row">
                                 <div class="form-group">
                                     <label>Min (%)</label>
@@ -3027,10 +3114,9 @@ function renderExprPatchSettings() {
                                     ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t1.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                                 </select>
                             </div>
-                            <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t1.output_mode === 1 ? 'display:none' : ''}">
+                            <label class="toggle-row" style="${t1.output_mode === 1 ? 'display:none' : ''}" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
                                 <input type="checkbox" ${t1.soft_takeover ? 'checked' : ''} ${t1.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target1.soft_takeover', this.checked)"> Soft takeover
                             </label>
-                            
                         </div>
 
                         <!-- TARGET 2 -->
@@ -3041,7 +3127,19 @@ function renderExprPatchSettings() {
                                     <input type="checkbox" ${t2.enabled ? 'checked' : ''} onchange="updateExprPatchSetting(${idx}, 'target2.enabled', this.checked)"> Attivo
                                 </label>
                             </div>
-                            ${renderExprTargetOutput(t2, 'target2', idx, 'updateExprPatchSetting', t2Params)}
+                            ${exprTargetOutputFields(idx, 'target2', t2, t2.enabled, 'updateExprPatchSetting')}
+                            <div class="form-group" style="${t2.output_mode === 1 ? 'display:none' : ''}">
+                                <label>Modulo Target</label>
+                                <select ${t2.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target2.module_id', this.value)">
+                                    ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t2.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group" style="${t2.output_mode === 1 ? 'display:none' : ''}">
+                                <label>Parametro Effetto</label>
+                                <select ${t2.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target2.alg_id', this.value)">
+                                    ${t2Params.map(p => `<option value="${p.alg}" ${t2.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
+                                </select>
+                            </div>
                             <div class="expr-range-row">
                                 <div class="form-group">
                                     <label>Min (%)</label>
@@ -3058,10 +3156,9 @@ function renderExprPatchSettings() {
                                     ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t2.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                                 </select>
                             </div>
-                            <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t2.output_mode === 1 ? 'display:none' : ''}">
+                            <label class="toggle-row" style="${t2.output_mode === 1 ? 'display:none' : ''}" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
                                 <input type="checkbox" ${t2.soft_takeover ? 'checked' : ''} ${t2.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target2.soft_takeover', this.checked)"> Soft takeover
                             </label>
-                            
                         </div>
 
                         <!-- TARGET 3 -->
@@ -3072,7 +3169,19 @@ function renderExprPatchSettings() {
                                     <input type="checkbox" ${t3.enabled ? 'checked' : ''} onchange="updateExprPatchSetting(${idx}, 'target3.enabled', this.checked)"> Attivo
                                 </label>
                             </div>
-                            ${renderExprTargetOutput(t3, 'target3', idx, 'updateExprPatchSetting', t3Params)}
+                            ${exprTargetOutputFields(idx, 'target3', t3, t3.enabled, 'updateExprPatchSetting')}
+                            <div class="form-group" style="${t3.output_mode === 1 ? 'display:none' : ''}">
+                                <label>Modulo Target</label>
+                                <select ${t3.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target3.module_id', this.value)">
+                                    ${MODULE_NAMES.map(m => `<option value="${m.id}" ${t3.module_id === m.id ? 'selected' : ''}>${m.name} (${m.full})</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group" style="${t3.output_mode === 1 ? 'display:none' : ''}">
+                                <label>Parametro Effetto</label>
+                                <select ${t3.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target3.alg_id', this.value)">
+                                    ${t3Params.map(p => `<option value="${p.alg}" ${t3.alg_id === p.alg ? 'selected' : ''}>${p.name}</option>`).join('')}
+                                </select>
+                            </div>
                             <div class="expr-range-row">
                                 <div class="form-group">
                                     <label>Min (%)</label>
@@ -3089,10 +3198,9 @@ function renderExprPatchSettings() {
                                     ${EXPR_CURVES.map(c => `<option value="${c.id}" ${t3.curve === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                                 </select>
                             </div>
-                            <label class="toggle-row" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato." style="${t3.output_mode === 1 ? 'display:none' : ''}">
+                            <label class="toggle-row" style="${t3.output_mode === 1 ? 'display:none' : ''}" title="Evita salti: il target riprende il controllo quando il pedale raggiunge il suo ultimo valore inviato.">
                                 <input type="checkbox" ${t3.soft_takeover ? 'checked' : ''} ${t3.enabled ? '' : 'disabled'} onchange="updateExprPatchSetting(${idx}, 'target3.soft_takeover', this.checked)"> Soft takeover
                             </label>
-                            
                         </div>
 
                         <div class="card-actions" style="margin-top: 10px;">
@@ -3142,9 +3250,6 @@ function addExprPatchSetting() {
         target1: {
             enabled: true,
             soft_takeover: false,
-            output_mode: 0,
-            midi_cc_channel: 0,
-            midi_cc_number: 11,
             module_id: 2,
             alg_id: 0,
             min_val: 0,
@@ -3154,9 +3259,6 @@ function addExprPatchSetting() {
         target2: {
             enabled: false,
             soft_takeover: false,
-            output_mode: 0,
-            midi_cc_channel: 0,
-            midi_cc_number: 12,
             module_id: 7,
             alg_id: 0,
             min_val: 0,
@@ -3166,9 +3268,6 @@ function addExprPatchSetting() {
         target3: {
             enabled: false,
             soft_takeover: false,
-            output_mode: 0,
-            midi_cc_channel: 0,
-            midi_cc_number: 13,
             module_id: 8,
             alg_id: 0,
             min_val: 0,
@@ -3200,7 +3299,7 @@ function updateExprPatchSetting(index, path, value) {
         } else if (sub === 'soft_takeover') {
             item[targetKey].soft_takeover = Boolean(value);
         } else if (sub === 'output_mode') {
-            item[targetKey].output_mode = Number(value) === 1 ? 1 : 0;
+            item[targetKey].output_mode = Math.min(1, Math.max(0, parseInt(value) || 0));
         } else if (sub === 'midi_cc_channel') {
             item[targetKey].midi_cc_channel = Math.min(15, Math.max(0, (parseInt(value) || 1) - 1));
         } else if (sub === 'midi_cc_number') {
@@ -3256,7 +3355,8 @@ function updateBtnAction(layer, buttonId, actionVal) {
 }
 
 function updateBtnMode(layer, buttonId, modeVal) {
-    getLayerButton(layer, buttonId).mode = parseInt(modeVal);
+    const button = getLayerButton(layer, buttonId);
+    button.mode = parseInt(modeVal);
     renderButtons();
 }
 
@@ -3265,6 +3365,50 @@ function updateBtnParam(layer, buttonId, field, val) {
     if (field === 'cc_channel') val = Math.max(0, parseInt(val) - 1);
     getLayerButton(layer, buttonId)[field] = val;
     if (field === 'hold_bidirectional') renderButtons();
+}
+
+function addExtraButtonFunction(layer, buttonId) {
+    const btn = getLayerButton(layer, buttonId);
+    btn.functions = Array.isArray(btn.functions) ? btn.functions : [];
+    if (btn.functions.length >= 3) return;
+    btn.functions.push({ enabled: true, action: 0, mode: 0, trigger: 0, hold_ms: 1000, hold_bidirectional: false, param1: 0, layer_short_mask: (1 << configData.layers.length) - 1, layer_long_mask: 0, cc_channel: 0, cc_number: 0, cc_value: 127, label: '', sysex_hex: '', default_scene_patch: 255, scene_mappings: [] });
+    renderButtons();
+}
+
+function removeExtraButtonFunction(layer, buttonId, index) {
+    const btn = getLayerButton(layer, buttonId);
+    btn.functions.splice(index, 1);
+    renderButtons();
+}
+
+function updateExtraButtonFunction(layer, buttonId, index, field, value) {
+    const fn = getLayerButton(layer, buttonId).functions[index];
+    if (field === 'enabled' || field === 'hold_bidirectional') value = Boolean(value);
+    else if (['action', 'mode', 'trigger', 'hold_ms', 'param1', 'cc_number', 'cc_value', 'default_scene_patch'].includes(field)) value = Number.parseInt(value, 10) || 0;
+    else if (field === 'cc_channel') value = Math.max(0, (Number.parseInt(value, 10) || 1) - 1);
+    fn[field] = value;
+    if (field === 'mode' && fn.mode === 3) fn.trigger = 1;
+    if (field === 'trigger' && fn.trigger === 0 && fn.mode === 3) fn.mode = 0;
+    renderButtons();
+}
+
+function updateExtraPressMode(layer, buttonId, index, value) {
+    const fn = getLayerButton(layer, buttonId).functions[index];
+    const modes = {
+        short_toggle: [0, 0], short_momentary: [0, 1], short_hold: [0, 2], short_cc_fixed: [0, 4],
+        long_toggle: [1, 3], long_momentary: [1, 1], long_cc_fixed: [1, 4],
+        short_action: [0, 0], long_action: [1, 0]
+    };
+    const [trigger, mode] = modes[value] || modes.short_action;
+    fn.trigger = trigger;
+    fn.mode = mode;
+    renderButtons();
+}
+
+function updateExtraLayerMask(layer, buttonId, index, field, layerIndex, enabled) {
+    const fn = getLayerButton(layer, buttonId).functions[index];
+    const bit = 1 << layerIndex;
+    fn[field] = enabled ? ((fn[field] || 0) | bit) : ((fn[field] || 0) & ~bit);
 }
 
 function updateLayerCycleMask(layer, buttonId, field, layerIndex, enabled) {
@@ -3319,7 +3463,7 @@ function addButton() {
     const number = configData.hardware.buttons.length + 1;
     const id = `button-${Date.now()}`;
     configData.hardware.buttons.push({ id, gpio: null, led_gpio: null });
-    configData.layers.forEach(layer => layer.buttons.push({ button_id: id, enabled: true, action: 0, mode: 0, hold_ms: 1000, hold_bidirectional: false, param1: 0, label: `Tasto ${number}` }));
+    configData.layers.forEach(layer => layer.buttons.push({ button_id: id, enabled: true, action: 0, mode: 0, hold_ms: 1000, hold_bidirectional: false, param1: 0, label: `Tasto ${number}`, functions: [] }));
     renderButtons();
 }
 

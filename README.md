@@ -2,6 +2,8 @@
 
 This lightweight package is for users of the **WT9932P4-TINY board with ESP32-P4**. It contains the web app and prebuilt firmware binaries. It does not contain build caches, development logs, the ESP-IDF SDK, or dependency source trees.
 
+**[Open the web app](web-app/index.html)** — this single self-contained HTML file is the app included in this release.
+
 > **Supported hardware:** WT9932P4-TINY with ESP32-P4 and the USB routing used by this project. Do not use this firmware or the eFuse procedure on another board or hardware revision unless you have verified its USB wiring.
 
 ## Development and installation help
@@ -119,7 +121,7 @@ The installer writes the bootloader, partition table, OTA data, and app at their
 
 ## Open the web app
 
-The web app is a **single self-contained HTML file**. No Python, web server, or separate CSS/JavaScript files are needed.
+Open `web-app/index.html`; it contains the app's HTML, CSS, and JavaScript in one file. It is ready for local use and GitHub Pages without additional app files.
 
 - **Open locally:** extract the GitHub ZIP, then double-click `web-app/index.html` and open it with Chrome or Microsoft Edge.
 - **Open online:** enable GitHub Pages for the repository (Settings → Pages → deploy from the `main` branch and `/(root)`), then visit `https://<your-account>.github.io/<repository>/web-app/`.
@@ -143,13 +145,30 @@ For OTA, select **only** the application `.bin`. Do not select `bootloader.bin`,
 - **Controls the Pocket Master from a traditional MIDI controller over 5-pin DIN:** connect the controller's MIDI OUT to the pedalboard's female **MIDI IN** socket. The pedalboard receives MIDI through its 6N138 optocoupler and forwards supported messages to the Pocket Master over USB. This is a physical DIN MIDI input; it does not require USB MIDI from the external controller. Enable/configure MIDI IN in the web app as needed.
 - Exposes a composite USB device on **FUSB**: class-compliant USB MIDI for a DAW or MIDI software, plus USB CDC for the web app. A configurable two-footswitch hold switches modes.
 - Configures up to 16 footswitch profiles and 6 layers. This firmware snapshot starts with 9 buttons and 2 layers. Actions include short/long press, module toggle, preset selection, tap tempo, layer switching, custom CC, custom SysEx, and patch-scene jumps with return.
+- In Pocket Master mode, each footswitch supports one main action and up to three additional actions. Each can use its own action and short/long press behavior. Custom CC buttons can send a configured fixed value, a momentary value, or toggle between 127 and 0.
+- Native Pocket Master scenes are separate named actions: **Base (CC 85)**, **Scene 1 (CC 82)**, and **Scene 2 (CC 83)**. They always send only value 127. A mapped base-scene button LED starts on; selecting Scene 1 or 2 moves the indicator to the mapped button. A custom CC with the same CC number remains a normal custom CC and keeps its selected behavior. Native scene actions are also separate from **Scene / Patch Jump**, which selects firmware-managed presets and returns to the origin patch.
 - Configures footswitch LEDs and the OLED layout, including preset, layer, USB, BPM, and expression-pedal information.
-- Supports up to 6 expression pedals with calibration, soft takeover, parameter assignments, and USB MIDI CC output. Assignments can vary by preset. A configurable footswitch combination can act as an expression killswitch.
+- Supports up to 6 expression pedals with calibration, soft takeover, Pocket Master parameter assignments, or USB MIDI CC output. Assignments can vary by preset. A configurable footswitch combination can act as an expression killswitch.
 - In USB MIDI mode, footswitches can send CC, Note, Program Change, and Tap Tempo messages with configurable values and momentary/toggle behavior. Expression pedals can send CC messages.
 - Supports 5-pin DIN MIDI IN with passthrough, channel filtering, and remapping of all 16 MIDI channels, depending on the installed hardware wiring. Supported channel messages include Note On/Off, Control Change, Program Change, Channel Pressure, Pitch Bend, and Poly Aftertouch.
 - The web app provides live status, manual CC/SysEx sending, JSON configuration import/export, and USB firmware updates. Configuration is stored in the board's NVS flash.
 
+## Latest firmware changes
+
+- The Pocket Master footswitch editor offers separate named native scene actions for CC 85/82/83. They always transmit 127; they never send a zero value. The active scene button LED follows the last selected base/scene button, with base selected at startup.
+- Whenever a changed preset is detected (footswitch, MIDI, or web app), scene LEDs reset to base. Pressing the already active Scene 1 or Scene 2 button returns to base.
+- The named FREEZE action sends CC 114 as a 127/0 toggle. Its LED starts off and resets off on patch changes, so the next press sends 127.
+- Normal custom CC actions retain the selectable 127/0 toggle, configured fixed value, and momentary behavior, regardless of the chosen CC number.
+- The native scene CC commands are distinct from firmware **Scene / Patch Jump** actions and their preset mapping/return behavior.
+- The public release app is the single self-contained `web-app/index.html`, bundled from the current development app sources.
+
 Available features depend on the physical pedalboard wiring. FUSB pins are reserved for USB and cannot be assigned to buttons or LEDs.
+
+## Pocket Master CFW compatibility
+
+The pedalboard can send its native scene and Freeze commands to the community Pocket Master CFW using the CFW's **Stock MIDI map**: Base / Scene 1 / Scene 2 use CC 85 / 82 / 83, and FREEZE uses CC 114. FREEZE alternates 127 (on) and 0 (off), matching the CFW's documented threshold behavior. If the Pocket Master uses a **Custom MIDI map**, keep these CC assignments mapped to the same functions. See the [CFW MIDI manual](https://pocketmaster-cfw.guitar-training-generator.com/manual/#midi) and [CC recipes](https://pocketmaster-cfw.guitar-training-generator.com/midi/recipes/).
+
+This is MIDI compatibility; the pedalboard does not install or update the Pocket Master CFW. Hardware compatibility has not been verified with a CFW-equipped Pocket Master.
 
 ## Parts list and wiring reference
 
