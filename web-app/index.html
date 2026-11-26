@@ -415,7 +415,7 @@ input[type="checkbox"] { width: auto; padding: 0; accent-color: var(--success); 
 /* ═══ Button Config Cards ═════════════════════════════════════════ */
 .buttons-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
     gap: 16px;
 }
 
@@ -442,7 +442,7 @@ input[type="checkbox"] { width: auto; padding: 0; accent-color: var(--success); 
 /* ═══ Expression Pedal Grid ═══════════════════════════════════════ */
 .expr-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
     gap: 16px;
 }
 .section-note { color: var(--text-muted); font-size: 0.8rem; margin: 0 0 16px; }
@@ -603,7 +603,7 @@ input[type="checkbox"] { width: auto; padding: 0; accent-color: var(--success); 
 /* Remap grid */
 .remap-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
     gap: 10px;
 }
 
@@ -842,7 +842,7 @@ input[type="checkbox"] { width: auto; padding: 0; accent-color: var(--success); 
 /* Grid of Element Configuration Cards */
 .oled-elements-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
     gap: 14px;
 }
 
@@ -1066,6 +1066,86 @@ main section[hidden] { display: none !important; }
 .fn-order { display: inline-flex; gap: 4px; }
 .fn-order .btn[disabled] { opacity: 0.35; cursor: default; }
 .fn-order-hint { display: block; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-muted); font-size: 0.7rem; }
+.bridge-error { color: #fca5a5; font-weight: 600; }
+#bridgeSettings { align-items: flex-end; flex-wrap: wrap; }
+
+/* ═══ Telefono (iPhone / Android) ═════════════════════════════════ */
+html { -webkit-text-size-adjust: 100%; }
+/* Il contenitore principale non deve allargarsi oltre lo schermo (body è flex). */
+.app-container { min-width: 0; }
+.main-content { min-width: 0; max-width: 100%; }
+.app-container > *, main section, .btn-config-card, .expr-subpanel { min-width: 0; }
+.wifi-diag { line-height: 1.45; }
+.wifi-diag small { color: var(--text-muted); }
+
+@media (max-width: 600px) {
+    body { padding: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+    .app-container { gap: 12px; }
+    .card { padding: 14px; gap: 12px; }
+
+    /* Intestazione su due righe: nome + stato/pulsanti */
+    .app-header { flex-wrap: wrap; gap: 10px; padding: 12px; }
+    .brand { gap: 10px; }
+    .brand .icon { font-size: 1.6rem; }
+    .brand h1 { font-size: 1.05rem; }
+    .subtitle { display: none; }
+    .connection-status { width: 100%; flex-wrap: wrap; gap: 8px; font-size: 0.85rem; }
+    .connection-status #statusText { flex: 1 1 140px; }
+    .connection-status .btn { padding: 8px 12px; }
+
+    /* Schede in una riga scorrevole */
+    .main-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 6px; }
+    .main-tabs::-webkit-scrollbar { display: none; }
+    .main-tabs button { flex: 0 0 auto; padding: 9px 12px; font-size: 0.85rem; }
+
+    /* Titoli e layer */
+    .card-header h2 { font-size: 1.05rem; }
+    .layer-tabs { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 4px; }
+    .programming-toolbar { flex-direction: column; align-items: stretch; }
+    .programming-actions { flex-wrap: wrap; }
+
+    /* Griglie a una colonna */
+    .buttons-grid, .expr-grid, .expr-patch-grid { grid-template-columns: 1fr !important; }
+    .pin-row { grid-template-columns: 1fr 1fr; }
+    .fx-picker { grid-template-columns: 1fr !important; }
+
+    /* Niente zoom automatico di Safari sui campi (serve almeno 16 px) */
+    input, select, textarea { font-size: 16px !important; }
+
+    /* Pulsanti salva/importa sempre raggiungibili in basso */
+    .actions-bar {
+        position: sticky; bottom: 0; z-index: 15;
+        background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px);
+        border: 1px solid var(--card-border); border-radius: var(--radius);
+        padding: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    }
+    .actions-bar .btn { padding: 9px 10px; font-size: 0.85rem; }
+    .right-actions { gap: 6px; width: 100%; }
+    .right-actions .btn { flex: 1 1 auto; }
+    #saveBtn { flex-basis: 100%; }
+    /* Sul telefono la barra in basso tiene solo "Salva": leggere, importare ed esportare
+       sono in alto e nella scheda "Backup e firmware". */
+    .actions-bar #loadDefaultsBtn, .actions-bar #importBtn, .actions-bar #exportBtn, .actions-bar #readConfigBtn { display: none !important; }
+    .actions-bar { justify-content: stretch; }
+
+    /* Live: menu preset su una riga propria */
+    .preset-row { flex-wrap: wrap; gap: 8px; }
+    .preset-nav-btns { flex-wrap: wrap; width: 100%; gap: 8px; }
+    .preset-nav-btns .preset-select { order: -1; flex: 1 1 100%; min-width: 0; }
+    .preset-nav-btns .nav-btn { flex: 1 1 0; }
+    #sendPresetBtn { flex: 1 1 100%; }
+}
+
+/* Messaggio a comparsa */
+.toast {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(90px + env(safe-area-inset-bottom)); z-index: 50;
+    max-width: min(92vw, 520px); padding: 12px 16px; border-radius: 10px;
+    font-weight: 600; font-size: 0.9rem; line-height: 1.4; cursor: pointer;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+.toast-ok { background: #065f46; color: #ecfdf5; border: 1px solid #10b981; }
+.toast-error { background: #7f1d1d; color: #fef2f2; border: 1px solid #ef4444; }
 
 </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1714,6 +1794,19 @@ main section[hidden] { display: none !important; }
                     <span id="firmwareUploadStatus" class="section-note"></span>
                 </div>
             </section>
+            <section class="card shadow-card" data-tab="advanced">
+                <div class="card-header"><h2>📶 Ponte WiFi per iPhone</h2><span class="badge">ESP32-S3 · UART2</span></div>
+                <p class="section-note">Una schedina ESP32-S3 collegata con 3 fili crea la rete WiFi "Pedaliera": dall'iPhone ti colleghi a quella rete e apri <b>http://192.168.4.1</b> in Safari.<br>
+                    Collega: TX della pedaliera → RX dell'ESP32-S3, RX della pedaliera → TX dell'ESP32-S3, GND ↔ GND. Scegli due GPIO liberi (non usati da tasti, LED, OLED, pedali o MIDI IN).</p>
+                <div class="pin-row" id="bridgeSettings">
+                    <label class="toggle-row"><input type="checkbox" id="bridgeEnabled"> Ponte attivo</label>
+                    <div class="form-group"><label for="bridgeTx">GPIO TX (verso RX dell'ESP32-S3)</label><input type="number" id="bridgeTx" min="0" max="54" placeholder="consigliato 6"></div>
+                    <div class="form-group"><label for="bridgeRx">GPIO RX (da TX dell'ESP32-S3)</label><input type="number" id="bridgeRx" min="0" max="54" placeholder="consigliato 9"></div>
+                </div>
+                <div class="section-note" id="bridgeDiag" hidden></div>
+                <small id="bridgeNote">Dopo aver cambiato queste impostazioni premi "💾 Salva su ESP32-P4".</small>
+            </section>
+
             <section class="card shadow-card" data-tab="advanced">
                 <div class="card-header">
                     <h2>📟 Monitor Seriale</h2>
@@ -2996,6 +3089,12 @@ function normalizeConfig() {
     configData.settings = configData.settings || {};
     configData.settings.expression_deadband = Math.min(1000, Math.max(0, Number(configData.settings.expression_deadband ?? 25) || 0));
     configData.settings.tap_mode = [0, 1, 2].includes(Number(configData.settings.tap_mode)) ? Number(configData.settings.tap_mode) : 0;
+    /* Ponte WiFi (iPhone): seriale verso l'ESP32-S3, spento finché non si scelgono i pin. */
+    configData.bridge = configData.bridge || {};
+    configData.bridge.enabled = Boolean(configData.bridge.enabled);
+    configData.bridge.tx_gpio = Number.isInteger(configData.bridge.tx_gpio) ? configData.bridge.tx_gpio : -1;
+    configData.bridge.rx_gpio = Number.isInteger(configData.bridge.rx_gpio) ? configData.bridge.rx_gpio : -1;
+    if (typeof renderBridgeSettings === 'function') renderBridgeSettings();
     configData.version = Math.max(Number(configData.version) || 1, 12);
     configData.layers = Array.isArray(configData.layers) ? configData.layers : [];
     configData.hardware = configData.hardware || {};
@@ -4189,6 +4288,10 @@ function updateDeviceStatus(data) {
         deviceState.modules = data.modules.slice(0, 9);
     }
     if (typeof data.fw === 'string') setFirmwareVersion(data.fw);
+    if (data.bridge && typeof data.bridge === 'object') {
+        deviceState.bridge = data.bridge;
+        if (typeof renderBridgeSettings === 'function') renderBridgeSettings();
+    }
     if (Array.isArray(data.effects)) {
         const effects = data.effects.slice(0, 10).map(Number);
         const changed = JSON.stringify(effects) !== JSON.stringify(deviceState.effects || []);
@@ -4396,9 +4499,25 @@ function handleReceivedLine(lineStr) {
 
         } else if (msg.type === 'ack') {
             log(`✅ ACK: ${msg.cmd}`, 'system');
+            if (msg.cmd === 'set_config' && typeof showToast === 'function') {
+                showToast('✅ Salvato sulla pedaliera. Rileggo la configurazione per conferma…', 'ok');
+                /* Rilettura: mostra subito se le impostazioni sono state davvero tenute. */
+                setTimeout(() => requestConfigFromDevice(), 600);
+            }
 
         } else if (msg.type === 'error') {
             log(`❌ Errore [${msg.cmd}]: ${msg.reason}`, 'error');
+            if (msg.cmd === 'set_config' && typeof showToast === 'function') {
+                const reasons = {
+                    'Invalid configuration': 'una o più impostazioni non sono accettate (per esempio un GPIO usato due volte, un pedale attivo senza GPIO, o la combinazione di tasti per cambiare modalità)',
+                    'Unable to save configuration to flash': 'la memoria della pedaliera non è riuscita a salvare (la configurazione precedente resta valida). Aggiorna la pedaliera al firmware 1.3.3 o successivo',
+                    'Not enough memory to stage configuration': 'memoria temporanea insufficiente sulla pedaliera: riprova',
+                };
+                const reason = String(msg.reason || '');
+                const key = Object.keys(reasons).find(k => reason.startsWith(k));
+                const detail = key && reason.length > key.length ? ` [${reason.slice(key.length).replace(/^[\s(]+|\)$/g, '')}]` : '';
+                showToast(`❌ Non salvato: ${key ? reasons[key] : reason}.${detail}`, 'error');
+            }
         }
     } catch (e) {
         // Raw serial line (printf from firmware), already shown in log
@@ -4451,7 +4570,7 @@ function updateSysexByteCount() {
 }
 
 // ═══ Event Listeners ════════════════════════════════════════════════
-connectBtn.addEventListener('click', connectSerial);
+connectBtn.addEventListener('click', () => (window.connectTransport || connectSerial)());
 
 document.getElementById('firmwareFileInput').addEventListener('change', (event) => {
     document.getElementById('firmwareUploadBtn').disabled = !event.target.files?.length;
@@ -4566,11 +4685,16 @@ saveBtn.addEventListener('click', () => {
     const assignedPins = [
         ...configData.hardware.buttons.flatMap(button => [button.gpio, button.led_gpio]),
         ...configData.hardware.layer_led_gpios,
-        configData.midi_in?.rx_gpio
+        configData.midi_in?.rx_gpio,
+        ...(configData.bridge?.enabled ? [configData.bridge.tx_gpio, configData.bridge.rx_gpio] : [])
     ].map(pin => pin === '' || pin == null ? null : Number(pin));
     const conflictingPin = assignedPins.find(pin => usbPins.includes(pin));
     if (conflictingPin !== undefined) {
         alert(`GPIO ${conflictingPin} è riservato alla porta USB FUSB. Scegli un altro GPIO prima di salvare.`);
+        return;
+    }
+    if (typeof bridgeProblem === 'function' && bridgeProblem()) {
+        alert(`Ponte WiFi: ${bridgeProblem()}`);
         return;
     }
     sendJson({ cmd: "set_config", data: configData });
@@ -5999,8 +6123,35 @@ window.I18N_EN = {
     "Esegui prima": "Run earlier",
     "Esegui dopo": "Run later",
     "eseguite in quest'ordine, dopo l'azione principale": "run in this order, after the main action",
+    "📶 Ponte WiFi per iPhone": "📶 WiFi bridge for iPhone",
+    "Una schedina ESP32-S3 collegata con 3 fili crea la rete WiFi \"Pedaliera\": dall'iPhone ti colleghi a quella rete e apri": "A small ESP32-S3 board connected with 3 wires creates the \"Pedaliera\" WiFi network: join it from the iPhone and open",
+    "in Safari.": "in Safari.",
+    "Ponte attivo": "Bridge enabled",
+    "GPIO TX (verso RX dell'ESP32-S3)": "TX GPIO (to the ESP32-S3 RX)",
+    "GPIO RX (da TX dell'ESP32-S3)": "RX GPIO (from the ESP32-S3 TX)",
+    "Dopo aver cambiato queste impostazioni premi \"💾 Salva su ESP32-P4\".": "After changing these settings press \"💾 Save to ESP32-P4\".",
+    "Scegli entrambi i GPIO prima di attivare il ponte.": "Choose both GPIOs before enabling the bridge.",
+    "TX e RX devono essere due GPIO diversi.": "TX and RX must be two different GPIOs.",
+    "Uno dei GPIO è già usato da un altro collegamento.": "One of the GPIOs is already used by another connection.",
+    "Connetti WiFi": "Connect WiFi",
+    "Disconnetti WiFi": "Disconnect WiFi",
+    "Connessione WiFi…": "Connecting WiFi…",
+    "Connesso (WiFi)": "Connected (WiFi)",
+    "Disconnesso (WiFi)": "Disconnected (WiFi)",
+    "WiFi perso — riconnessione…": "WiFi lost — reconnecting…",
+    "WiFi pedaliera": "Pedalboard WiFi",
+    "Via WiFi l'aggiornamento firmware non è disponibile: usa il cavo USB dal computer.": "Firmware updates are not available over WiFi: use the USB cable from a computer.",
+    "Collega: TX della pedaliera → RX dell'ESP32-S3, RX della pedaliera → TX dell'ESP32-S3, GND ↔ GND. Scegli due GPIO liberi (non usati da tasti, LED, OLED, pedali o MIDI IN).": "Wiring: pedalboard TX → ESP32-S3 RX, pedalboard RX → ESP32-S3 TX, GND ↔ GND. Choose two free GPIOs (not used by buttons, LEDs, OLED, pedals or MIDI IN).",
+    "consigliato 6": "suggested 6",
+    "consigliato 9": "suggested 9",
+    "Via WiFi l'aggiornamento firmware della pedaliera non è disponibile: usa il cavo USB dal computer.": "Pedalboard firmware updates are not available over WiFi: use the USB cable from a computer.",
+    "Aggiorna il ponte WiFi": "Update the WiFi bridge",
+    "✅ Salvato sulla pedaliera. Rileggo la configurazione per conferma…": "✅ Saved on the pedalboard. Reading the configuration back to confirm…",
 };
 window.I18N_EN_PATTERNS = [
+    [/^❌ Non salvato: una o più impostazioni non sono accettate.*$/, '❌ Not saved: one or more settings are not accepted (for example a GPIO used twice, an enabled pedal without GPIO, or the mode-switch button combination).'],
+    [/^❌ Non salvato: la memoria della pedaliera non è riuscita a salvare.*$/, '❌ Not saved: the pedalboard memory could not store it (the previous configuration is still valid). Update the pedalboard to firmware 1.3.3 or later.'],
+    [/^❌ Non salvato: (.*)$/, '❌ Not saved: $1'],
     [/^Parametri di (.+)$/, 'Parameters of $1'],
     [/^Funzione (\d+)$/, 'Function $1'],
     [/^Funzioni aggiuntive \((\d+)\/3\)$/, 'Extra functions ($1/3)'],
@@ -6240,6 +6391,252 @@ function showBackupInfo(info, fileName) {
 document.getElementById('backupExportBtn')?.addEventListener('click', exportBackup);
 document.getElementById('backupImportBtn')?.addEventListener('click', () => fileInput.click());
 document.getElementById('backupReadBtn')?.addEventListener('click', () => requestConfigFromDevice());
+
+/* ── Ponte WiFi per iPhone (sezione Avanzate) ── */
+function bridgeUsedPins() {
+    const pins = [24, 25, 10, 11];
+    (configData.hardware?.buttons || []).forEach(b => pins.push(b.gpio, b.led_gpio));
+    (configData.hardware?.layer_led_gpios || []).forEach(p => pins.push(p));
+    (configData.expression_pedals || []).forEach(p => pins.push(p.gpio));
+    if (configData.midi_in?.rx_gpio != null) pins.push(configData.midi_in.rx_gpio);
+    return pins.filter(p => p !== null && p !== undefined && p !== '' && Number(p) >= 0).map(Number);
+}
+
+function bridgeProblem() {
+    const b = configData.bridge || { enabled: false, tx_gpio: -1, rx_gpio: -1 };
+    if (!b.enabled) return '';
+    const used = bridgeUsedPins();
+    if (b.tx_gpio < 0 || b.rx_gpio < 0) return t('Scegli entrambi i GPIO prima di attivare il ponte.');
+    if (b.tx_gpio === b.rx_gpio) return t('TX e RX devono essere due GPIO diversi.');
+    if (used.includes(b.tx_gpio) || used.includes(b.rx_gpio)) return t('Uno dei GPIO è già usato da un altro collegamento.');
+    return '';
+}
+
+function renderBridgeSettings() {
+    const b = configData.bridge || { enabled: false, tx_gpio: -1, rx_gpio: -1 };
+    const en = document.getElementById('bridgeEnabled');
+    const tx = document.getElementById('bridgeTx');
+    const rx = document.getElementById('bridgeRx');
+    const note = document.getElementById('bridgeNote');
+    if (!en || !tx || !rx) return;
+    en.checked = b.enabled;
+    tx.value = b.tx_gpio >= 0 ? b.tx_gpio : '';
+    rx.value = b.rx_gpio >= 0 ? b.rx_gpio : '';
+    const problem = bridgeProblem();
+    const diag = document.getElementById('bridgeDiag');
+    if (diag) {
+        const st = deviceState.bridge;
+        diag.hidden = !st;
+        if (st) diag.textContent = st.on
+            ? `${t('Collegamento col ponte attivo')} · ${t('ricevuti dal ponte')}: ${st.rx_bytes} byte, ${st.rx_lines} ${t('comandi')}` +
+              (st.rx_bytes ? '' : ` — ${t('se l\'iPhone è collegato e questo resta 0, controlla il filo dal TX del ponte al pin IO9 e il GND')}`)
+            : t('Collegamento col ponte spento (attivalo qui sopra e salva).');
+    }
+    if (note) {
+        note.textContent = problem || t('Dopo aver cambiato queste impostazioni premi "💾 Salva su ESP32-P4".');
+        note.classList.toggle('bridge-error', Boolean(problem));
+    }
+}
+
+function updateBridgeSetting() {
+    const pin = (id) => { const v = document.getElementById(id).value; return v === '' ? -1 : Math.min(54, Math.max(0, parseInt(v, 10) || 0)); };
+    configData.bridge = {
+        enabled: document.getElementById('bridgeEnabled').checked,
+        tx_gpio: pin('bridgeTx'),
+        rx_gpio: pin('bridgeRx'),
+    };
+    /* Pin consigliati sulla WT9932P4-TINY: GPIO6 e GPIO9, vicini sul connettore,
+       GPIO normali (non JTAG né strapping). Proposti se liberi. */
+    const b = configData.bridge;
+    if (b.enabled && b.tx_gpio < 0 && b.rx_gpio < 0) {
+        const used = bridgeUsedPins();
+        if (!used.includes(6) && !used.includes(9)) { b.tx_gpio = 6; b.rx_gpio = 9; }
+    }
+    renderBridgeSettings();
+}
+
+['bridgeEnabled', 'bridgeTx', 'bridgeRx'].forEach(id => document.getElementById(id)?.addEventListener('change', updateBridgeSetting));
+renderBridgeSettings();
+
+/* ── Messaggi a comparsa (salvataggio riuscito / rifiutato) ── */
+function showToast(text, kind) {
+    let box = document.getElementById('toast');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'toast';
+        box.setAttribute('role', 'status');
+        box.addEventListener('click', () => { box.hidden = true; });
+        document.body.appendChild(box);
+    }
+    box.className = `toast toast-${kind || 'ok'}`;
+    box.textContent = text;
+    box.hidden = false;
+    clearTimeout(box._timer);
+    if (kind !== 'error') box._timer = setTimeout(() => { box.hidden = true; }, 4000);
+}
+
+</script>
+    <script>
+// ═══════════════════════════════════════════════════════════════════
+//  Collegamento WiFi (iPhone / tablet / qualsiasi browser).
+//  Quando la web app è servita dal "ponte" WiFi (ESP32-S3, http://192.168.4.1)
+//  parla con la pedaliera via WebSocket invece che con WebSerial.
+//  Stessi messaggi JSON su righe: il resto della web app non cambia.
+//  Caricato dopo app.js.
+// ═══════════════════════════════════════════════════════════════════
+
+/* La pagina servita dal ponte è in http://; GitHub (https) e il file locale (file:) usano WebSerial. */
+const WIFI_LINK = location.protocol === 'http:';
+
+let wifiSocket = null;
+let wifiManualClose = false;
+let wifiRetryTimer = null;
+/* Diagnostica: righe ricevute dalla pedaliera da quando il ponte è collegato. */
+let wifiDeviceLines = 0;
+let wifiOpenedAt = 0;
+
+function wifiDiagBox() {
+    let box = document.getElementById('wifiDiag');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'wifiDiag';
+        box.className = 'mode-banner wifi-diag';
+        box.setAttribute('role', 'status');
+        box.hidden = true;
+        const header = document.querySelector('.app-header');
+        header.insertAdjacentElement('afterend', box);
+    }
+    return box;
+}
+
+/* Messaggio periodico del ponte: dice quanti dati passano nelle due direzioni. */
+function wifiShowBridgeDiag(d) {
+    const box = wifiDiagBox();
+    if (wifiDeviceLines > 0) { box.hidden = true; return; }
+    if (Date.now() - wifiOpenedAt < 3500) return;
+    box.hidden = false;
+    const sent = `${t('Comandi inviati alla pedaliera')}: ${d.tx_lines}`;
+    if (!d.rx_bytes) {
+        box.innerHTML = `<b>⚠ ${t('Il ponte WiFi funziona, ma non riceve niente dalla pedaliera.')}</b><br>
+            ${t('Controlla')}: 1) ${t('filo dal pin IO6 della pedaliera al pin RX del ponte')}; 2) ${t('filo GND tra le due schede')};
+            3) ${t('dal computer col cavo: Avanzate → Ponte WiFi → "Ponte attivo" con GPIO TX 6 e RX 9, poi "Salva su ESP32-P4" (firmware pedaliera 1.3.0 o successivo)')}.<br><small>${sent} · ponte ${d.fw}</small>`;
+    } else if (!d.rx_lines) {
+        box.innerHTML = `<b>⚠ ${t('Il ponte riceve dati illeggibili dalla pedaliera')} (${d.rx_bytes} byte).</b><br>
+            ${t('Controlla il filo GND tra le due schede e che il filo verso RX del ponte parta da IO6 della pedaliera.')}<br><small>${sent} · ponte ${d.fw}</small>`;
+    } else {
+        box.innerHTML = `<b>⚠ ${t('Il ponte riceve risposte dalla pedaliera, ma la pagina non le vede.')}</b><br>
+            ${t('Ricarica la pagina. Se continua, segnalalo: è un errore del software.')}<br><small>${sent} · ${d.rx_lines} righe · ponte ${d.fw}</small>`;
+    }
+}
+
+function wifiSetStatus(connected, text) {
+    statusDot.className = `status-dot ${connected ? 'connected' : 'disconnected'}`;
+    statusText.textContent = text;
+    connectBtn.textContent = connected ? 'Disconnetti WiFi' : 'Connetti WiFi';
+}
+
+function wifiScheduleRetry() {
+    clearTimeout(wifiRetryTimer);
+    if (!wifiManualClose) wifiRetryTimer = setTimeout(() => connectWifi(), 2000);
+}
+
+function connectWifi() {
+    if (wifiSocket && (wifiSocket.readyState === WebSocket.OPEN || wifiSocket.readyState === WebSocket.CONNECTING)) {
+        /* Secondo clic = disconnetti. */
+        if (wifiSocket.readyState === WebSocket.OPEN) {
+            wifiManualClose = true;
+            wifiSocket.close();
+        }
+        return;
+    }
+    wifiManualClose = false;
+    clearTimeout(wifiRetryTimer);
+    wifiSetStatus(false, 'Connessione WiFi…');
+    let buffer = '';
+    const socket = new WebSocket(`ws://${location.host}/ws`);
+    wifiSocket = socket;
+
+    /* iOS a volte lascia il WebSocket bloccato in "connessione": riprova. */
+    const stuck = setTimeout(() => { if (socket.readyState === WebSocket.CONNECTING) socket.close(); }, 4000);
+
+    socket.onopen = async () => {
+        clearTimeout(stuck);
+        wifiDeviceLines = 0;
+        wifiOpenedAt = Date.now();
+        port = { wifi: true };
+        writer = {
+            write: (text) => { socket.send(text.replace(/\n$/, '')); return Promise.resolve(); },
+            close: () => Promise.resolve(),
+        };
+        wifiSetStatus(true, 'Ponte collegato — attendo la pedaliera…');
+        log('Connessione WiFi stabilita.', 'system');
+        await sendJson({ cmd: 'get_status' });
+        await sendJson({ cmd: 'req_state' });
+        setReadButtonsVisible(true);
+        if (!window.backupLoadedNotSaved) setTimeout(() => requestConfigFromDevice(), 300);
+    };
+    socket.onmessage = (event) => {
+        buffer += event.data + '\n';
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+            const text = line.trim();
+            if (!text) continue;
+            if (text.startsWith('{"type":"bridge"')) {
+                try { wifiShowBridgeDiag(JSON.parse(text)); } catch (e) { /* ignore */ }
+                continue;
+            }
+            if (wifiDeviceLines++ === 0) {
+                wifiSetStatus(true, 'Connesso (WiFi)');
+                const box = document.getElementById('wifiDiag');
+                if (box) box.hidden = true;
+            }
+            log(`RX: ${text}`, 'rx');
+            handleReceivedLine(text);
+        }
+    };
+    socket.onclose = () => {
+        clearTimeout(stuck);
+        if (wifiSocket === socket) {
+            wifiSocket = null;
+            port = null;
+            writer = null;
+            setReadButtonsVisible(false);
+            wifiSetStatus(false, wifiManualClose ? 'Disconnesso (WiFi)' : 'WiFi perso — riconnessione…');
+            wifiScheduleRetry();
+        }
+    };
+    socket.onerror = () => { /* onclose gestisce la riconnessione */ };
+}
+
+if (WIFI_LINK) {
+    window.connectTransport = connectWifi;
+    document.body.classList.add('wifi-link');
+    /* L'aggiornamento firmware si fa solo via cavo USB. */
+    const otaBtn = document.getElementById('firmwareUploadBtn');
+    const otaInput = document.getElementById('firmwareFileInput');
+    if (otaBtn) otaBtn.disabled = true;
+    if (otaInput) otaInput.disabled = true;
+    const otaStatus = document.getElementById('firmwareUploadStatus');
+    if (otaStatus) {
+        otaStatus.textContent = 'Via WiFi l\'aggiornamento firmware della pedaliera non è disponibile: usa il cavo USB dal computer. ';
+        const link = document.createElement('a');
+        link.href = '/aggiorna';
+        link.textContent = 'Aggiorna il ponte WiFi';
+        otaStatus.appendChild(link);
+    }
+    /* Tornando sulla pagina (iPhone in standby) ricollega subito. */
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && !wifiManualClose &&
+            (!wifiSocket || wifiSocket.readyState !== WebSocket.OPEN)) {
+            if (wifiSocket) { try { wifiSocket.close(); } catch (e) { /* ignore */ } }
+            wifiSocket = null;
+            connectWifi();
+        }
+    });
+    wifiSetStatus(false, 'WiFi pedaliera');
+    connectWifi();
+}
 
 </script>
 </body>

@@ -154,9 +154,16 @@ For OTA, select **only** the application `.bin`. Do not select `bootloader.bin`,
 - Supports up to 6 expression pedals with calibration, soft takeover, Pocket Master parameter assignments, or USB MIDI CC output. Assignments can vary by preset. Parameters are chosen by **block → effect → parameter**, with heel/toe values in the parameter's real unit (ms, Hz, %, dB, option) and a "Test" button. Soft takeover uses the real value read from the preset. The web app warns when the preset holds a different effect. A configurable footswitch combination can act as an expression killswitch.
 - In USB MIDI mode, footswitches can send CC, Note, Program Change, and Tap Tempo messages with configurable values and momentary/toggle behavior. Expression pedals can send CC messages.
 - Supports 5-pin DIN MIDI IN with passthrough, channel filtering, and remapping of all 16 MIDI channels, depending on the installed hardware wiring. Supported channel messages include Note On/Off, Control Change, Program Change, Channel Pressure, Pitch Bend, and Poly Aftertouch.
-- The web app (Italian / English) is organized in tabs (Live, Buttons, Pedals, USB MIDI, Backup & firmware, Advanced). It reads the pedalboard configuration automatically on connect, shows the firmware version, provides live status, manual CC/SysEx sending, named and dated backups, and USB firmware updates. Configuration is stored in the board's NVS flash.
+- The web app (Italian / English) is organized in tabs (Live, Buttons, Pedals, USB MIDI, Backup & firmware, Advanced) and adapts to phone screens. It reads the pedalboard configuration automatically on connect, shows the firmware version, provides live status, manual CC/SysEx sending, named and dated backups, and USB firmware updates. Every save shows a clear "saved" / "not saved (reason)" message and reads the configuration back. Configuration is stored compressed in the board's NVS flash.
+- **Optional WiFi bridge for iPhone/iPad** (Safari has no WebSerial): a small ESP32-S3 board on 3 wires creates its own WiFi network and serves the same web app at `http://192.168.4.1`. See [`wifi-bridge/README.md`](wifi-bridge/README.md).
 
-## Latest firmware changes (1.2.0)
+## Latest firmware changes (1.3.4)
+
+- **Optional WiFi bridge** (ESP32-S3, firmware in `wifi-bridge/`) to use the web app from an iPhone or iPad: own WiFi network with password, no router needed, the bridge updates itself over WiFi. The pedalboard side is off by default and uses UART2 on two free GPIOs (IO6/IO9 suggested); it never delays footswitches or MIDI.
+- **Configuration saving fixed:** the configuration is stored compressed (about 10.9 KB → 3.2 KB) and the save uses much less RAM. If a save ever fails, the previous configuration is kept and the web app shows the reason.
+- Web app: layout for phones, save confirmation messages, WiFi diagnostics; the status message reports free RAM.
+
+## Changes in 1.2.0
 
 - Firmware version shown on the OLED at startup and in the web app.
 - Footswitches with several actions: every SysEx write waits for the Pocket Master's acknowledgement, and preset/scene changes get a short settle time, so no action is lost. Fast preset scrolling keeps only the latest selection.
@@ -173,7 +180,7 @@ Available features depend on the physical pedalboard wiring. FUSB pins are reser
 
 The pedalboard can send its native scene and Freeze commands to the community Pocket Master CFW using the CFW's **Stock MIDI map**: Base / Scene 1 / Scene 2 use CC 85 / 82 / 83, and FREEZE uses CC 114. FREEZE alternates 127 (on) and 0 (off), matching the CFW's documented threshold behavior. If the Pocket Master uses a **Custom MIDI map**, keep these CC assignments mapped to the same functions. See the [CFW MIDI manual](https://pocketmaster-cfw.guitar-training-generator.com/manual/#midi) and [CC recipes](https://pocketmaster-cfw.guitar-training-generator.com/midi/recipes/).
 
-This is MIDI compatibility; the pedalboard does not install or update the Pocket Master CFW. Firmware 1.2.0 was tested by the author with Pocket Master **CFW 1.0.3** on the Stock MIDI map. The CFW-only features (BPM tap, ready-made CFW commands, CFW effect models) need the CFW; everything else also works with the stock Pocket Master firmware.
+This is MIDI compatibility; the pedalboard does not install or update the Pocket Master CFW. Firmware 1.3.4 was tested by the author with Pocket Master **CFW 1.0.3** on the Stock MIDI map. The CFW-only features (BPM tap, ready-made CFW commands, CFW effect models) need the CFW; everything else also works with the stock Pocket Master firmware.
 
 ## Parts list and wiring reference
 
@@ -210,6 +217,8 @@ Use these assignments when building the default 9-button layout. In the web app,
 | OLED SDA | GPIO10; I²C at 400 kHz. The firmware probes I²C addresses 0x3C and 0x3D. |
 | OLED SCL | GPIO11. |
 | MIDI IN data from 6N138 output | GPIO15 (UART1 RX), 31,250 baud. This is the default and must not be shared with another control. |
+| Optional WiFi bridge (ESP32-S3) | GPIO6 = TX → bridge RX, GPIO9 = RX ← bridge TX (UART2, 921,600 baud), plus GND. Enabled in the web app; see `wifi-bridge/README.md`. |
+| Onboard resources to avoid | GPIO51 drives the board's RGB LED (do not use it for a pedal), GPIO35 is the onboard button, GPIO36–38 are strapping pins (37/38 = console UART), GPIO39–44 are the microSD slot. |
 
 ### Basic connections
 
