@@ -2,7 +2,7 @@
 
 This lightweight package is for users of the **WT9932P4-TINY board with ESP32-P4**. It contains the web app and prebuilt firmware binaries. It does not contain build caches, development logs, the ESP-IDF SDK, or dependency source trees.
 
-**[Open the web app](web-app/index.html)** — this single self-contained HTML file is the app included in this release.
+**[Open the web app](docs/index.html)** — this single self-contained HTML file is the app included in this release.
 
 > **Supported hardware:** WT9932P4-TINY with ESP32-P4 and the USB routing used by this project. Do not use this firmware or the eFuse procedure on another board or hardware revision unless you have verified its USB wiring.
 
