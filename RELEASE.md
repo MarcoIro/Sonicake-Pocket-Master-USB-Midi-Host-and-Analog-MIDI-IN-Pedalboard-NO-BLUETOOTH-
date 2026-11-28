@@ -1,24 +1,37 @@
-# Release notes — firmware 1.3.4 + WiFi bridge 1.1.3 (2026-11-26)
+# Release notes — firmware 1.3.8 + WiFi bridge 1.1.6 (2026-11-28)
 
-Firmware for WT9932P4-TINY / ESP32-P4, built with ESP-IDF 5.4.4. Tested on hardware by the author with a Pocket Master running CFW 1.0.3 (Stock MIDI map), including the WiFi bridge on a Waveshare ESP32-S3-Nano and an iPhone.
+Firmware for WT9932P4-TINY / ESP32-P4, built with ESP-IDF 5.4.4. Tested on hardware by the author with a Pocket Master running **CFW 1.1.1** (Stock MIDI map), including the WiFi bridge on a Waveshare ESP32-S3-Nano and an iPhone.
 
-Update with OTA: open `web-app/index.html`, connect, tab **Backup & firmware**, select `firmware/pedaliera-firmware.bin`. The bootloader, partition table and OTA data are unchanged (first-time installation is the same). Saving a backup of your configuration before updating is recommended.
+Update with OTA: open `docs/index.html` (or the GitHub Pages link), connect, tab **Backup & firmware**, select `firmware/pedaliera-firmware.bin`. The bootloader, partition table and OTA data are unchanged (first-time installation is the same). Saving a backup of your configuration before updating is recommended. The first update to 1.3.8 must be done with the USB cable; after that the pedalboard can also be updated from an iPhone through the WiFi bridge.
 
-## New in 1.3.4
+WiFi bridge: update it over WiFi (`http://192.168.4.1/aggiorna`) with `wifi-bridge/bridge-firmware.bin`. Its other files are unchanged.
 
-### Optional WiFi bridge for iPhone / iPad
-- Safari has no WebSerial and the WT9932P4-TINY has no radio, so an ESP32-S3 board (folder `wifi-bridge/`) creates the WiFi network `Pedaliera` and serves the web app at `http://192.168.4.1`. Instructions: `wifi-bridge/README.md`.
-- Pedalboard side: UART2 at 921,600 baud on two GPIOs chosen in the web app (IO6/IO9 suggested), disabled by default. Commands from the bridge are processed one at a time with the USB ones; status updates never wait for the bridge, so footswitches and MIDI are not delayed. Firmware updates of the pedalboard stay USB-only.
-- The bridge updates itself over WiFi (`http://192.168.4.1/aggiorna`) and verifies the file before switching.
-- Diagnostics on both sides: the phone shows what to check when the pedalboard does not answer; the computer shows how much data arrived from the bridge.
+## New in 1.3.8
 
-### Configuration saving fixed
-- Saving could fail with "Unable to save configuration to flash" because the save needed too much RAM and the configuration no longer fitted twice in the small NVS partition. The configuration is now stored compressed (about 10.9 KB → 3.2 KB, CRC-checked) and the save uses far less RAM. A failed save never deletes the stored configuration, and the web app shows the reason. Older stored configurations are read normally.
-- The status message reports free RAM (`heap`, `heap_max`).
+### Firmware updates from an iPhone / iPad
+- The pedalboard now accepts firmware updates sent through the optional WiFi bridge (before, they were USB-only).
+- Each chunk carries its position: a lost or repeated chunk is rejected at once instead of at the end.
+- An update running from one link (USB or WiFi) cannot be disturbed by the other; after 30 s of silence (for example a phone that went to sleep) a new update can start from either link.
+- Safety is unchanged: the image is activated only if it is complete and its SHA-256 is correct, and rollback is enabled. If anything goes wrong the previous firmware stays.
+- Web app: larger chunks over WiFi (faster), progress percentage, a clear message when the pedalboard firmware is too old for WiFi updates.
 
-### Web app
-- Layout for phone screens (no horizontal overflow, no Safari zoom on input, "Save" always reachable).
-- Clear "saved" / "not saved (reason)" messages after every save, with an automatic read-back.
+### Scenes in sync with Pocket Master CFW 1.1.1
+- With CFW 1.1.x, a preset changed on the Pocket Master while SC1/SC2 is playing is not always announced over USB, so the pedalboard stayed on the old preset and its scene buttons did the opposite. While idle, the pedalboard now asks for the current preset once per second (a 14-byte request that does not wait for acknowledgements, so footswitches are not delayed). If the preset changed, scene, LEDs, OLED and preset values are resynchronized; if not, nothing happens.
+- After a preset change while SC1/SC2 was active, the pedalboard also sends Base (CC 85) so the Pocket Master and the pedalboard agree.
+
+### Global EQ slots (CFW 1.1+, CC 116)
+- Ready-made CC commands for Global EQ slots 1–4 (Global EQ on/off moved to the same group).
+- New footswitch action **Global EQ: next slot**: each press moves to the next ticked slot and shows it on the OLED. After power-on the first press goes to the first ticked slot (the pedalboard cannot read the active slot). The ticked slots are stored in an existing field, so the configuration size does not change. This action is verified on the computer (save / reload) but not yet tested on hardware by the author.
+
+### Diagnostics
+- Short Pocket Master messages that the pedalboard does not recognize, plus preset and block notifications, appear in the web app monitor (tab Advanced) as `pm_rx` lines (at most 10 per second, never blocking).
+- A firmware line that is not an update command is no longer parsed twice, so a configuration save does not need more RAM.
+
+### Pocket Master CFW 1.1.1
+- The effect data of CFW 1.1.1 is identical to CFW 1.0.3: the 161 effects / 730 parameters are unchanged. The only new MIDI function is CC 116 (Global EQ slot).
+
+## Included from 1.3.4
+- Optional WiFi bridge for iPhone / iPad (`wifi-bridge/`), compressed configuration saving, phone layout and save confirmation messages.
 
 ## Included from 1.2.0
 - Reliable multi-action footswitches (ACK-paced SysEx, settle times after preset/scene changes).

@@ -121,10 +121,10 @@ The installer writes the bootloader, partition table, OTA data, and app at their
 
 ## Open the web app
 
-Open `web-app/index.html`; it contains the app's HTML, CSS, and JavaScript in one file. It is ready for local use and GitHub Pages without additional app files.
+Open `docs/index.html`; it contains the app's HTML, CSS, and JavaScript in one file. It is ready for local use and GitHub Pages without additional app files.
 
-- **Open locally:** extract the GitHub ZIP, then double-click `web-app/index.html` and open it with Chrome or Microsoft Edge.
-- **Open online:** enable GitHub Pages for the repository (Settings → Pages → deploy from the `main` branch and `/(root)`), then visit `https://<your-account>.github.io/<repository>/web-app/`.
+- **Open locally:** extract the GitHub ZIP, then double-click `docs/index.html` and open it with Chrome or Microsoft Edge.
+- **Open online:** enable GitHub Pages for the repository (Settings → Pages → deploy from the `main` branch and the `/docs` folder), then visit `https://<your-account>.github.io/<repository>/`.
 
 Web Serial is available only in supported browsers and secure contexts. A local `file://` page is treated as a secure context by current browsers; if your browser or organization policy blocks serial access from local files, use the GitHub Pages HTTPS link instead. Connect FUSB and press **Connetti Seriale**. The app's interface is currently in Italian. Configuration and firmware update commands require **Pocket Master mode**; native USB MIDI mode suspends those commands.
 
@@ -137,6 +137,8 @@ Use this path only after the board already exposes CDC and USB MIDI on FUSB. **D
 3. In the web app's firmware update section, select the downloaded `.bin` file and start the update.
 4. Keep the USB cable connected and the web app open. Wait for the transfer to finish and for the board to restart.
 
+**Over WiFi from an iPhone/iPad (firmware 1.3.8 or later already installed, optional WiFi bridge 1.1.6):** save `pedaliera-firmware.bin` in the Files app, join the `Pedaliera` network, open `http://192.168.4.1`, tab **Backup & firmware**, choose the file and start the update. Keep Safari open and the screen on until the green message (about a minute). The first update to 1.3.8 must be done with the USB cable: older firmware refuses updates over WiFi, and the web app says so. If the WiFi drops or the file is damaged, the board keeps its previous firmware (the image is SHA-256 verified before it is activated).
+
 For OTA, select **only** the application `.bin`. Do not select `bootloader.bin`, `partition-table.bin`, or `ota_data_initial.bin`; those files are for first-time wired installation. OTA writes the application to the inactive app slot and leaves the partition table unchanged. A release that changes the partition table, bootloader, or eFuse requirements must provide its own recovery/update instructions.
 
 ## Features
@@ -147,17 +149,26 @@ For OTA, select **only** the application `.bin`. Do not select `bootloader.bin`,
 - Configures up to 16 footswitch profiles and 6 layers. This firmware snapshot starts with 9 buttons and 2 layers. Actions include short/long press, module toggle, preset selection, tap tempo, layer switching, custom CC, custom SysEx, patch-scene jumps with return, **Set parameter** (value A / value B of any parameter, e.g. a solo boost) and **Change effect** (effect A / effect B in a block, optionally with up to 4 parameter values).
 - Effect-aware data for **161 effects / 730 parameters**, taken from SonicMaster and the Pocket Master CFW web app, including the CFW's own models (Studio, Tape, Dual, Shimmer, Swell and Lo-Fi Delay; Studio Verb, Ambient, Freeze, Duck Verb, Gated; Studio EQ, Cut 24, Parametric 3, Tilt EQ) and the extra knobs the CFW adds to the stock delays and reverbs.
 - The firmware reads the active preset from the Pocket Master: the effect loaded in every block, every parameter's real value and the preset BPM. LEDs of Set parameter / Change effect follow the real patch state.
-- In Pocket Master mode, each footswitch supports one main action and up to three additional actions, executed in order (the order can be changed in the web app). Each can use its own action and short/long press behavior. Commands are paced by the Pocket Master's acknowledgements, so several actions on one switch all arrive. Custom CC buttons can send a configured fixed value, a momentary value, or toggle between 127 and 0, and offer a menu of ready-made **Pocket Master CFW commands** (looper, tap, tap + note value, Sync, delay note, bank/preset, block on/off, footswitch modes, tuner, Global EQ, drum).
+- In Pocket Master mode, each footswitch supports one main action and up to three additional actions, executed in order (the order can be changed in the web app). Each can use its own action and short/long press behavior. Commands are paced by the Pocket Master's acknowledgements, so several actions on one switch all arrive. Custom CC buttons can send a configured fixed value, a momentary value, or toggle between 127 and 0, and offer a menu of ready-made **Pocket Master CFW commands** (looper, tap, tap + note value, Sync, delay note, bank/preset, block on/off, footswitch modes, tuner, Global EQ on/off and Global EQ slots 1–4, drum).
 - Tap tempo can write the DLY Time (default) or set the **preset BPM on the Pocket Master CFW** (CC 68/69), so every delay and modulation with Sync on follows; a third mode also writes the DLY Time when the delay's Sync is off.
-- Native Pocket Master scenes are separate named actions: **Base (CC 85)**, **Scene 1 (CC 82)**, and **Scene 2 (CC 83)**. They always send only value 127. A mapped base-scene button LED starts on; selecting Scene 1 or 2 moves the indicator to the mapped button. A custom CC with the same CC number remains a normal custom CC and keeps its selected behavior. Native scene actions are also separate from **Scene / Patch Jump**, which selects firmware-managed presets and returns to the origin patch.
+- Native Pocket Master scenes are separate named actions: **Base (CC 85)**, **Scene 1 (CC 82)**, and **Scene 2 (CC 83)**. They always send only value 127. After any preset change the pedalboard returns to Base (and tells the Pocket Master so); a preset changed on the Pocket Master itself is detected within about one second even when the CFW does not announce it. A mapped base-scene button LED starts on; selecting Scene 1 or 2 moves the indicator to the mapped button. A custom CC with the same CC number remains a normal custom CC and keeps its selected behavior. Native scene actions are also separate from **Scene / Patch Jump**, which selects firmware-managed presets and returns to the origin patch.
+- **Global EQ: next slot** action (Pocket Master CFW 1.1+, CC 116): each press moves to the next Global EQ slot among the ones you tick (for example 1 → 3 → 4 → 1) and shows it on the OLED.
 - Configures footswitch LEDs and the OLED layout, including preset, layer, USB, BPM, and expression-pedal information.
 - Supports up to 6 expression pedals with calibration, soft takeover, Pocket Master parameter assignments, or USB MIDI CC output. Assignments can vary by preset. Parameters are chosen by **block → effect → parameter**, with heel/toe values in the parameter's real unit (ms, Hz, %, dB, option) and a "Test" button. Soft takeover uses the real value read from the preset. The web app warns when the preset holds a different effect. A configurable footswitch combination can act as an expression killswitch.
 - In USB MIDI mode, footswitches can send CC, Note, Program Change, and Tap Tempo messages with configurable values and momentary/toggle behavior. Expression pedals can send CC messages.
 - Supports 5-pin DIN MIDI IN with passthrough, channel filtering, and remapping of all 16 MIDI channels, depending on the installed hardware wiring. Supported channel messages include Note On/Off, Control Change, Program Change, Channel Pressure, Pitch Bend, and Poly Aftertouch.
-- The web app (Italian / English) is organized in tabs (Live, Buttons, Pedals, USB MIDI, Backup & firmware, Advanced) and adapts to phone screens. It reads the pedalboard configuration automatically on connect, shows the firmware version, provides live status, manual CC/SysEx sending, named and dated backups, and USB firmware updates. Every save shows a clear "saved" / "not saved (reason)" message and reads the configuration back. Configuration is stored compressed in the board's NVS flash.
+- The web app (Italian / English) is organized in tabs (Live, Buttons, Pedals, USB MIDI, Backup & firmware, Advanced) and adapts to phone screens. It reads the pedalboard configuration automatically on connect, shows the firmware version, provides live status, manual CC/SysEx sending, named and dated backups, and firmware updates (USB cable, or WiFi through the optional bridge). Every save shows a clear "saved" / "not saved (reason)" message and reads the configuration back. Configuration is stored compressed in the board's NVS flash.
 - **Optional WiFi bridge for iPhone/iPad** (Safari has no WebSerial): a small ESP32-S3 board on 3 wires creates its own WiFi network and serves the same web app at `http://192.168.4.1`. See [`wifi-bridge/README.md`](wifi-bridge/README.md).
 
-## Latest firmware changes (1.3.4)
+## Latest firmware changes (1.3.8)
+
+- **Firmware updates from an iPhone/iPad** through the optional WiFi bridge (bridge 1.1.6). Each chunk carries its position, so a lost or repeated chunk is rejected at once; an update running from one link (USB or WiFi) cannot be disturbed by the other; the image is SHA-256 verified before activation and rollback stays enabled. The first update to 1.3.8 still needs the USB cable.
+- **Scenes stay in sync with Pocket Master CFW 1.1.1:** changing preset on the Pocket Master while in SC1/SC2 is not always announced by CFW 1.1.x; the pedalboard now checks the current preset once per second while idle (a 14-byte request that never delays the footswitches) and resynchronizes scene, LEDs, OLED and preset values. After a preset change from SC1/SC2 the pedalboard also sends Base (CC 85).
+- **Global EQ slots (CFW 1.1+, CC 116):** ready-made commands for slots 1–4 and a new **Global EQ: next slot** action with a checklist of the slots to cycle through.
+- Diagnostics: short Pocket Master messages the pedalboard does not recognize appear in the web app monitor (tab Advanced) as `pm_rx` lines.
+- Effect data checked against Pocket Master CFW 1.1.1: unchanged from CFW 1.0.3.
+
+## Changes in 1.3.4
 
 - **Optional WiFi bridge** (ESP32-S3, firmware in `wifi-bridge/`) to use the web app from an iPhone or iPad: own WiFi network with password, no router needed, the bridge updates itself over WiFi. The pedalboard side is off by default and uses UART2 on two free GPIOs (IO6/IO9 suggested); it never delays footswitches or MIDI.
 - **Configuration saving fixed:** the configuration is stored compressed (about 10.9 KB → 3.2 KB) and the save uses much less RAM. If a save ever fails, the previous configuration is kept and the web app shows the reason.
@@ -172,7 +183,7 @@ For OTA, select **only** the application `.bin`. Do not select `bootloader.bin`,
 - Tap tempo can set the preset BPM on the Pocket Master CFW (CC 68/69).
 - Ready-made Pocket Master CFW commands for the CC action.
 - Web app: tabs, English language, automatic configuration read, named and dated backups, reorderable additional actions.
-- The public release app is the single self-contained `web-app/index.html`, bundled from the current development app sources.
+- The public release app is the single self-contained web app (now `docs/index.html`), bundled from the current development app sources.
 
 Available features depend on the physical pedalboard wiring. FUSB pins are reserved for USB and cannot be assigned to buttons or LEDs.
 
@@ -180,7 +191,7 @@ Available features depend on the physical pedalboard wiring. FUSB pins are reser
 
 The pedalboard can send its native scene and Freeze commands to the community Pocket Master CFW using the CFW's **Stock MIDI map**: Base / Scene 1 / Scene 2 use CC 85 / 82 / 83, and FREEZE uses CC 114. FREEZE alternates 127 (on) and 0 (off), matching the CFW's documented threshold behavior. If the Pocket Master uses a **Custom MIDI map**, keep these CC assignments mapped to the same functions. See the [CFW MIDI manual](https://pocketmaster-cfw.guitar-training-generator.com/manual/#midi) and [CC recipes](https://pocketmaster-cfw.guitar-training-generator.com/midi/recipes/).
 
-This is MIDI compatibility; the pedalboard does not install or update the Pocket Master CFW. Firmware 1.3.4 was tested by the author with Pocket Master **CFW 1.0.3** on the Stock MIDI map. The CFW-only features (BPM tap, ready-made CFW commands, CFW effect models) need the CFW; everything else also works with the stock Pocket Master firmware.
+This is MIDI compatibility; the pedalboard does not install or update the Pocket Master CFW. Firmware 1.3.8 was tested by the author with Pocket Master **CFW 1.1.1** on the Stock MIDI map (earlier versions with CFW 1.0.3). The Global EQ slot commands need CFW 1.1 or later. The CFW-only features (BPM tap, ready-made CFW commands, CFW effect models) need the CFW; everything else also works with the stock Pocket Master firmware.
 
 ## Parts list and wiring reference
 

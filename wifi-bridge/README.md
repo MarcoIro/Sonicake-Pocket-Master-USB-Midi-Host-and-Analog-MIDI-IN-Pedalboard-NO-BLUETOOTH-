@@ -4,9 +4,9 @@ The WT9932P4-TINY has no WiFi or Bluetooth, and Safari on iPhone/iPad cannot use
 
 - Network: **`Pedaliera`**, password **`pedaliera123`** (WPA2). Open **http://192.168.4.1** in Safari.
 - No router or Internet is needed; it works on stage. iOS will say "No Internet connection": that is expected.
-- From the phone you can do everything except updating the **pedalboard** firmware (USB only).
+- From the phone you can do everything, including updating the **pedalboard** firmware (pedalboard 1.3.8 or later; see below).
 - If the bridge is off or disconnected, the pedalboard works exactly as without it.
-- Firmware: bridge **1.1.3**, requires pedalboard firmware **1.3.4** or later.
+- Firmware: bridge **1.1.6** (same code as 1.1.3, with the current web app inside), requires pedalboard firmware **1.3.4** or later; updating the pedalboard over WiFi requires **1.3.8** or later.
 
 > The password is the same for everyone who downloads this release. To change it, rebuild `bridge-firmware` (ESP-IDF 5.4.4, `idf.py menuconfig` → "Ponte WiFi pedaliera").
 
@@ -49,6 +49,16 @@ Join the `Pedaliera` network, open **http://192.168.4.1**. The page connects by 
 ## Updating the bridge later (over WiFi)
 
 Join `Pedaliera`, open **http://192.168.4.1/aggiorna** (also linked in the web app, tab Backup & firmware), choose the new `bridge-firmware.bin` and press **Aggiorna**. The bridge checks the file (it must be an ESP32-S3 image) and restarts after about 10 seconds. If the upload is interrupted, the previous version stays.
+
+## Updating the pedalboard firmware over WiFi
+
+Requires pedalboard firmware 1.3.8 or later (the first update to 1.3.8 must be done with the USB cable).
+
+1. Save `pedaliera-firmware.bin` in the iPhone Files app (iCloud Drive, e-mail…).
+2. Join `Pedaliera`, open **http://192.168.4.1**, tab **Backup & firmware**.
+3. Choose the file and press **Update firmware**. Keep Safari open and the screen on until the green message (about a minute; the percentage shows the progress). The pedalboard restarts and the page reconnects by itself.
+
+If the WiFi drops or the file is damaged, the pedalboard keeps its previous firmware: just try again (or use the USB cable after 30 seconds).
 
 ## SHA-256
 
